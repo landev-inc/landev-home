@@ -63,6 +63,54 @@
   .ie-send span { display: none; }
 }
 </style>
+<style>
+/* PARCEL PRE-CHECK */
+.pc-overlay { position: fixed; inset: 0; z-index: 10000; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(14,21,24,0.62); backdrop-filter: blur(6px); animation: ie-fade .22s ease; }
+.pc-overlay.open { display: flex; }
+.pc-panel { background: #fff; border-radius: 3px; width: 100%; max-width: 900px; max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 40px 90px rgba(14,21,24,0.45); animation: ie-rise .28s cubic-bezier(.2,.7,.3,1); font-family: Archivo, system-ui, sans-serif; }
+.pc-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 26px; border-bottom: 1px solid #e2ddd4; background: #fbfaf8; }
+.pc-body { display: grid; grid-template-columns: minmax(0,0.95fr) minmax(0,1.05fr); gap: 34px; padding: 30px 26px; overflow-y: auto; }
+
+.pc-h2 { font-size: clamp(22px,2.4vw,28px); font-weight: 600; letter-spacing: -0.025em; line-height: 1.12; margin: 0 0 20px; color: #0e1518; }
+.pc-form { display: flex; flex-direction: column; gap: 12px; }
+.pc-form input { width: 100%; border: 1px solid #e2ddd4; border-radius: 2px; padding: 13px 14px; font: inherit; font-size: 15px; color: #0e1518; outline: none; transition: border-color .2s ease; }
+.pc-form input:focus { border-color: #2f6f9e; }
+.pc-form input::placeholder { color: #9aa3a7; }
+.pc-go { align-self: flex-start; display: inline-flex; align-items: center; gap: 10px; background: #2f6f9e; color: #fff; border: 0; border-radius: 2px; font: inherit; font-size: 15px; font-weight: 600; padding: 13px 24px; cursor: pointer; transition: filter .2s ease; }
+.pc-go:hover { filter: brightness(1.1); }
+.pc-go:disabled { opacity: .5; cursor: not-allowed; }
+
+.pc-eg-label { margin: 26px 0 10px; font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #8a9296; }
+.pc-egs { display: flex; flex-wrap: wrap; gap: 8px; }
+.pc-eg { background: #fbfaf8; border: 1px solid #e2ddd4; border-radius: 2px; padding: 8px 12px; font: inherit; font-size: 13px; color: #5a666c; cursor: pointer; transition: border-color .2s ease, color .2s ease; }
+.pc-eg:hover { border-color: #0e1518; color: #0e1518; }
+
+.pc-result { display: flex; flex-direction: column; }
+.pc-tag { font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #8a9296; margin-bottom: 12px; }
+.pc-card { border: 1px solid #e2ddd4; border-radius: 2px; overflow: hidden; }
+.pc-map { position: relative; aspect-ratio: 16 / 10; background: #16232a; display: block; width: 100%; }
+.pc-rows { padding: 4px 16px 14px; }
+.pc-row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 11px 0; border-bottom: 1px solid #f0ece5; }
+.pc-row:last-child { border-bottom: 0; }
+.pc-k { font-size: 13px; color: #8a9296; flex-shrink: 0; }
+.pc-v { font-size: 14px; font-weight: 600; color: #0e1518; text-align: right; }
+.pc-v small { display: block; font-weight: 400; font-size: 12.5px; color: #5a666c; margin-top: 2px; }
+
+.pc-note { margin-top: 14px; font-size: 12px; line-height: 1.5; color: #8a9296; }
+.pc-cta { margin-top: 16px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; background: #0e1518; color: #fff; border: 0; border-radius: 2px; font: inherit; font-size: 14.5px; font-weight: 600; padding: 14px 20px; cursor: pointer; transition: filter .2s ease; }
+.pc-cta:hover { filter: brightness(1.35); }
+
+.pc-empty { border: 1px dashed #e2ddd4; border-radius: 2px; padding: 30px 22px; text-align: center; font-size: 14px; line-height: 1.6; color: #8a9296; }
+.pc-err { border: 1px solid #e6d4d0; background: #fdf7f6; border-radius: 2px; padding: 18px; font-size: 14px; line-height: 1.55; color: #8a5a52; }
+.pc-spin { display: inline-block; width: 15px; height: 15px; border: 2px solid rgba(255,255,255,.35); border-top-color: #fff; border-radius: 50%; animation: pc-rot .7s linear infinite; }
+@keyframes pc-rot { to { transform: rotate(360deg) } }
+
+@media (max-width: 780px) {
+  .pc-overlay { padding: 0; align-items: flex-end; }
+  .pc-panel { max-width: none; max-height: 94vh; border-radius: 0; }
+  .pc-body { grid-template-columns: 1fr; gap: 26px; padding: 22px 20px; }
+}
+</style>
 </head>
 <body>
 <x-dc>
@@ -318,7 +366,7 @@
     <p style="font-family: Arial; font-size: clamp(18px,1.55vw,22px); line-height: 1.55; color: rgba(255,255,255,0.84); max-width: 60ch; margin: 26px 0 0; text-wrap: pretty; animation: rise .85s .22s cubic-bezier(.16,1,.3,1) both">A trusted partner for landowners, developers, and municipalities across BC’s South Coast — scoped to what the approving authority needs, from feasibility through final approval.</p>
     <div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:34px;animation:rise .85s .32s cubic-bezier(.16,1,.3,1) both">
       <a href="#instant-estimate" data-estimate-cta="" style="display:inline-flex;align-items:center;gap:10px;background:#2f6f9e;color:#fff;font-size:15px;font-weight:600;padding:15px 26px;border-radius:2px;transition:transform .25s ease,filter .25s ease" style-hover="filter:brightness(1.12);transform:translateY(-2px)">Instant Estimate <span style="font-size:16px">→</span></a>
-      <button type="button" sc-camel-on-click="{{ openModal }}" style="display:inline-flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,0.42);background:transparent;font-family:Archivo,sans-serif;color:#fff;font-size:15px;font-weight:600;padding:15px 26px;border-radius:2px;cursor:pointer;white-space:nowrap;transition:background .25s ease,border-color .25s ease" style-hover="background:rgba(255,255,255,0.12);border-color:#ffffff">Check your parcel <span style="font-size:16px">→</span></button>
+      <button type="button" data-parcel-cta="" style="display:inline-flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,0.42);background:transparent;font-family:Archivo,sans-serif;color:#fff;font-size:15px;font-weight:600;padding:15px 26px;border-radius:2px;cursor:pointer;white-space:nowrap;transition:background .25s ease,border-color .25s ease" style-hover="background:rgba(255,255,255,0.12);border-color:#ffffff">Check your parcel <span style="font-size:16px">→</span></button>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:1px;margin-top:56px;animation:rise .85s .42s cubic-bezier(.16,1,.3,1) both">
       <div style="background:transparent;padding:20px 0 0"><div style="color:rgba(255,255,255,0.55);font-size:11px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase">Offices</div><div style="color:#fff;font-size:15px;margin-top:8px">Gibsons · West Vancouver · Squamish</div></div>
@@ -503,7 +551,7 @@
     <p style="font-family: Arial; font-size: 18px; line-height: 1.6; color: rgba(255,255,255,0.78); margin: 22px auto 0; max-width: 56ch; text-wrap: pretty">Tell us what you’re planning. We’ll scope the civil work and flag where the cost and review-cycle pressure usually shows up.</p>
     <div style="margin-top:34px;display:flex;flex-wrap:wrap;justify-content:center;gap:14px">
       <a href="#instant-estimate" data-estimate-cta="" style="display:inline-flex;align-items:center;gap:10px;background:#fff;color:#0e1518;font-size:15px;font-weight:600;padding:16px 28px;border-radius:2px;transition:transform .25s ease" style-hover="transform:translateY(-2px)">Instant Estimate <span style="font-size:16px">→</span></a>
-      <button type="button" sc-camel-on-click="{{ openModal }}" style="display:inline-flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,0.42);background:transparent;font-family:Archivo,sans-serif;color:#fff;font-size:15px;font-weight:600;padding:16px 28px;border-radius:2px;cursor:pointer;transition:border-color .25s ease,transform .25s ease" style-hover="border-color:#ffffff;transform:translateY(-2px)">Check your parcel <span style="font-size:16px">→</span></button>
+      <button type="button" data-parcel-cta="" style="display:inline-flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,0.42);background:transparent;font-family:Archivo,sans-serif;color:#fff;font-size:15px;font-weight:600;padding:16px 28px;border-radius:2px;cursor:pointer;transition:border-color .25s ease,transform .25s ease" style-hover="border-color:#ffffff;transform:translateY(-2px)">Check your parcel <span style="font-size:16px">→</span></button>
     </div>
   </div>
 </section>
@@ -1090,6 +1138,221 @@ class Component extends DCLogic {
      that survives however the runtime re-renders them. */
   document.addEventListener('click', function (e) {
     var cta = e.target.closest && e.target.closest('[data-estimate-cta]');
+    if (!cta) return;
+    e.preventDefault();
+    open();
+  });
+})();
+</script>
+
+<!-- PARCEL PRE-CHECK -->
+<div class="pc-overlay" id="pcOverlay" role="dialog" aria-modal="true" aria-labelledby="pcTitle">
+  <div class="pc-panel">
+    <div class="pc-head">
+      <div class="ie-title" id="pcTitle"><span class="ie-rule"></span>Parcel pre-check</div>
+      <button class="ie-close" id="pcClose" type="button" aria-label="Close">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="pc-body">
+      <div>
+        <h2 class="pc-h2">What will this parcel actually require?</h2>
+        <div class="pc-form">
+          <input type="text" id="pcInput" placeholder="Address or PID" autocomplete="off" aria-label="Address or PID">
+          <button class="pc-go" id="pcGo" type="button">Check parcel <span>&rarr;</span></button>
+        </div>
+        <div class="pc-eg-label">Try an example</div>
+        <div class="pc-egs" id="pcEgs"></div>
+      </div>
+      <div class="pc-result">
+        <div class="pc-tag" id="pcTag">Result</div>
+        <div id="pcOut"><div class="pc-empty">Enter an address or PID to pull the registered parcel and its zoning.</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* Parcel pre-check — queries /api/parcel, which proxies ParcelMap BC and the
+   municipal zoning layers. Standalone, like the estimate chat: it lives outside
+   the dc-runtime root so page hydration never touches it. */
+(function () {
+  var overlay = document.getElementById('pcOverlay');
+  var input   = document.getElementById('pcInput');
+  var goBtn   = document.getElementById('pcGo');
+  var outEl   = document.getElementById('pcOut');
+  var tagEl   = document.getElementById('pcTag');
+  var egsEl   = document.getElementById('pcEgs');
+  var busy = false;
+
+  var EXAMPLES = [
+    '2305 Mamquam Rd, Squamish',
+    '1018 Venture Way, Gibsons',
+    '6691 Nelson Ave, West Vancouver',
+  ];
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  EXAMPLES.forEach(function (eg) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'pc-eg';
+    b.textContent = eg;
+    b.addEventListener('click', function () { input.value = eg; run(); });
+    egsEl.appendChild(b);
+  });
+
+  /* Draws the real lot outline from the returned GeoJSON. Longitude is scaled
+     by cos(latitude) so the parcel keeps its true shape instead of being
+     stretched sideways — at 49°N a degree of longitude is about two thirds of
+     a degree of latitude. */
+  function outline(geometry, bbox) {
+    if (!geometry || !bbox) return '';
+    var W = 640, H = 400, PAD = 34;
+    var kx = Math.cos(((bbox[1] + bbox[3]) / 2) * Math.PI / 180) || 1;
+    var w = (bbox[2] - bbox[0]) * kx, h = bbox[3] - bbox[1];
+    if (!(w > 0) || !(h > 0)) return '';
+    var scale = Math.min((W - PAD * 2) / w, (H - PAD * 2) / h);
+    var ox = (W - w * scale) / 2, oy = (H - h * scale) / 2;
+    var px = function (lng) { return ox + (lng - bbox[0]) * kx * scale; };
+    var py = function (lat) { return H - (oy + (lat - bbox[1]) * scale); };
+
+    var rings = [];
+    (function walk(node, depth) {
+      if (!Array.isArray(node)) return;
+      if (Array.isArray(node[0]) && typeof node[0][0] === 'number') { rings.push(node); return; }
+      node.forEach(function (n) { walk(n, depth + 1); });
+    })(geometry.coordinates, 0);
+    if (!rings.length) return '';
+
+    var paths = rings.map(function (ring) {
+      return ring.map(function (pt, i) {
+        return (i ? 'L' : 'M') + px(pt[0]).toFixed(1) + ' ' + py(pt[1]).toFixed(1);
+      }).join(' ') + ' Z';
+    }).join(' ');
+
+    return '<svg class="pc-map" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Parcel outline">' +
+      '<defs><pattern id="pcGrid" width="40" height="40" patternUnits="userSpaceOnUse">' +
+        '<path d="M40 0H0V40" fill="none" stroke="#22323a" stroke-width="1"/></pattern></defs>' +
+      '<rect width="' + W + '" height="' + H + '" fill="#16232a"/>' +
+      '<rect width="' + W + '" height="' + H + '" fill="url(#pcGrid)"/>' +
+      '<path d="' + paths + '" fill="rgba(47,111,158,0.28)" stroke="#5fb0e5" stroke-width="2.5" stroke-linejoin="round"/>' +
+      '</svg>';
+  }
+
+  function row(k, v, sub) {
+    if (v == null || v === '') return '';
+    return '<div class="pc-row"><div class="pc-k">' + esc(k) + '</div><div class="pc-v">' + esc(v) +
+      (sub ? '<small>' + esc(sub) + '</small>' : '') + '</div></div>';
+  }
+
+  function fmt(n) { return Number(n).toLocaleString('en-CA'); }
+
+  function renderResult(d) {
+    var p = d.parcel, z = d.zoning;
+    var area = p.areaSqm
+      ? fmt(p.areaHa) + ' ha'
+      : null;
+    var areaSub = p.areaSqm ? fmt(p.areaSqft) + ' sq.ft. · ' + fmt(Math.round(p.areaSqm)) + ' m²' : null;
+
+    var html = '<div class="pc-card">' + outline(d.geometry, d.bbox) + '<div class="pc-rows">' +
+      row('Address', d.address) +
+      row('PID', p.pid || '—') +
+      row('Lot area', area, areaSub) +
+      row('Zoning', z ? z.code : 'Not published online', z ? (z.description || null) : 'No public zoning layer for this municipality') +
+      row('OCP', z && z.ocp) +
+      row('Bylaw', z && z.bylaw) +
+      row('Registered plan', p.planNumber && p.planNumber !== 'NO_PLAN' ? p.planNumber : null) +
+      row('Parcel class', p.parcelClass) +
+      row('Municipality', p.municipality) +
+      (d.landev ? row('Landev region', d.landev.region, d.landev.office + ' office') : '') +
+      '</div></div>';
+
+    if (d.approximate) {
+      html += '<div class="pc-note"><strong>Street-level match.</strong> This is the block, not a confirmed lot — check the PID against your title.</div>';
+    }
+    html += '<button class="pc-cta" id="pcEstimate" type="button">Get an estimate for this parcel <span>&rarr;</span></button>';
+    html += '<div class="pc-note">Sources: ' + esc(d.sources.join(' · ')) +
+      '. Preliminary only — Landev confirms zoning and servicing against the current bylaw before anything is relied on.</div>';
+
+    outEl.innerHTML = html;
+    tagEl.textContent = 'Result';
+
+    var est = document.getElementById('pcEstimate');
+    if (est) {
+      est.addEventListener('click', function () {
+        var lines = [
+          'Parcel: ' + (d.address || ''),
+          p.pid ? 'PID ' + p.pid : '',
+          p.areaHa ? 'Lot area ' + fmt(p.areaHa) + ' ha (' + fmt(p.areaSqft) + ' sq.ft.)' : '',
+          z ? 'Zoning ' + z.code + (z.description ? ' — ' + z.description : '') : '',
+          p.municipality ? 'Municipality: ' + p.municipality : '',
+        ].filter(Boolean).join('. ');
+        close();
+        if (window.openInstantEstimate) window.openInstantEstimate(lines);
+      });
+    }
+  }
+
+  async function run() {
+    var q = input.value.trim();
+    if (!q || busy) return;
+    busy = true;
+    goBtn.disabled = true;
+    tagEl.textContent = 'Looking up…';
+    outEl.innerHTML = '<div class="pc-empty">Querying ParcelMap BC…</div>';
+
+    try {
+      var res = await fetch('/api/parcel?q=' + encodeURIComponent(q));
+      var d = await res.json();
+      if (!res.ok) throw new Error(d && d.error || 'lookup failed');
+
+      if (!d.found) {
+        tagEl.textContent = 'No match';
+        var msg = d.reason === 'no-parcel-at-address'
+          ? 'That address resolved, but no registered parcel sits under it — it may be a road allowance or unsurveyed land. Try the PID from your title.'
+          : d.reason === 'pid-not-found'
+            ? 'No parcel in the province carries that PID. Check the digits against your title.'
+            : 'No BC address matched that. Try including the street number and community, or enter the PID.';
+        outEl.innerHTML = '<div class="pc-err">' + esc(msg) + '</div>';
+      } else {
+        renderResult(d);
+      }
+    } catch (err) {
+      tagEl.textContent = 'Error';
+      outEl.innerHTML = '<div class="pc-err">The parcel service didn\'t respond. Try again in a moment, or call us at 604-989-7300.</div>';
+    }
+
+    busy = false;
+    goBtn.disabled = false;
+  }
+
+  function open() {
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    setTimeout(function () { input.focus(); }, 180);
+  }
+  function close() {
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  window.openParcelCheck = open;
+
+  document.getElementById('pcClose').addEventListener('click', close);
+  overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && overlay.classList.contains('open')) close();
+  });
+  goBtn.addEventListener('click', run);
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); run(); }
+  });
+
+  document.addEventListener('click', function (e) {
+    var cta = e.target.closest && e.target.closest('[data-parcel-cta]');
     if (!cta) return;
     e.preventDefault();
     open();
