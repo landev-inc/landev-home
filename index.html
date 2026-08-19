@@ -926,27 +926,45 @@ class Component extends DCLogic {
   /* Renders the subset of markdown the prompt actually emits: paragraphs,
      numbered options, and bullet lists. */
   function render(text) {
-    var blocks = text.split(/\n\n+/);
     var html = '';
-    blocks.forEach(function (block) {
-      var b = block.trim();
-      if (!b) return;
-      var lines = b.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
-      var numbered = lines.every(function (l) { return /^\d+[.)]\s/.test(l); });
-      var bulleted = lines.every(function (l) { return /^[-*•]\s/.test(l); });
 
-      if (numbered && lines.length > 1) {
-        html += '<ol>' + lines.map(function (l) {
-          return '<li>' + inline(esc(l.replace(/^\d+[.)]\s*/, ''))) + '</li>';
-        }).join('') + '</ol>';
-      } else if (bulleted) {
-        html += '<ul>' + lines.map(function (l) {
-          return '<li>' + inline(esc(l.replace(/^[-*•]\s*/, ''))) + '</li>';
-        }).join('') + '</ul>';
-      } else {
-        html += '<p>' + inline(esc(lines.join('\n'))).replace(/\n/g, '<br>') + '</p>';
+    function kindOf(line) {
+      if (/^\d+[.)]\s/.test(line)) return 'ol';
+      if (/^[-*•]\s/.test(line)) return 'ul';
+      return 'p';
+    }
+
+    text.split(/\n\n+/).forEach(function (block) {
+      var lines = block.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+      if (!lines.length) return;
+
+      var run = [];
+      var kind = null;
+
+      function flush() {
+        if (!run.length) return;
+        if (kind === 'p') {
+          html += '<p>' + inline(esc(run.join('\n'))).replace(/\n/g, '<br>') + '</p>';
+        } else {
+          var marker = kind === 'ol' ? /^\d+[.)]\s*/ : /^[-*•]\s*/;
+          html += '<' + kind + '>' + run.map(function (l) {
+            return '<li>' + inline(esc(l.replace(marker, ''))) + '</li>';
+          }).join('') + '</' + kind + '>';
+        }
+        run = [];
       }
+
+      // Group consecutive lines of the same kind, so a bold heading followed
+      // by bullets renders as a heading plus a real list rather than one
+      // paragraph of literal dashes.
+      lines.forEach(function (line) {
+        var k = kindOf(line);
+        if (k !== kind) { flush(); kind = k; }
+        run.push(line);
+      });
+      flush();
     });
+
     return html || '<p>' + inline(esc(text)) + '</p>';
   }
 
