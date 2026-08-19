@@ -395,6 +395,8 @@ export default async function handler(req, res) {
         areaSqft: sqm ? Math.round(sqm * 10.7639) : null,
       },
       zoning,
+      // Consumed by /api/flags to pick the municipal applications layer.
+      municipalityId: muni?.id || null,
       landev: muni ? { region: muni.region, office: muni.office } : null,
       geometry: feature.geometry || null,
       center: box ? { lng: box.lng, lat: box.lat } : null,

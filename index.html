@@ -100,6 +100,47 @@
 .pc-cta { margin-top: 16px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; background: #0e1518; color: #fff; border: 0; border-radius: 2px; font: inherit; font-size: 14.5px; font-weight: 600; padding: 14px 20px; cursor: pointer; transition: filter .2s ease; }
 .pc-cta:hover { filter: brightness(1.35); }
 
+/* Gate — what are you trying to do, plus contact */
+.pc-gate { margin-top: 16px; border-top: 1px solid #e2ddd4; padding-top: 18px; animation: ie-rise .25s ease both; }
+.pc-gate-h { font-size: 15px; font-weight: 600; color: #0e1518; margin-bottom: 12px; }
+.pc-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pc-opt { text-align: left; background: #fbfaf8; border: 1px solid #e2ddd4; border-radius: 2px; padding: 11px 13px; font: inherit; font-size: 13.5px; color: #0e1518; cursor: pointer; transition: border-color .18s ease, background .18s ease; }
+.pc-opt small { display: block; margin-top: 3px; font-size: 11px; color: #8a9296; }
+.pc-opt:hover { border-color: #0e1518; }
+.pc-opt.on { background: #0e1518; border-color: #0e1518; color: #fff; }
+.pc-opt.on small { color: rgba(255,255,255,0.65); }
+
+.pc-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.pc-field { display: flex; flex-direction: column; gap: 5px; }
+.pc-field:nth-child(2) { grid-column: 1 / -1; }
+.pc-field span { font-size: 12px; color: #5a666c; }
+.pc-field em { color: #2f6f9e; font-style: normal; }
+.pc-field input { border: 1px solid #e2ddd4; border-radius: 2px; padding: 10px 12px; font: inherit; font-size: 14px; color: #0e1518; outline: none; transition: border-color .2s ease; }
+.pc-field input:focus { border-color: #2f6f9e; }
+.pc-gate-err:not(:empty) { margin-top: 10px; font-size: 13px; color: #a4564a; }
+
+/* Reveal */
+.pc-flags { margin-top: 16px; border-top: 1px solid #e2ddd4; padding-top: 18px; animation: ie-rise .3s ease both; }
+.pc-flags-h { font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #8a9296; margin-bottom: 14px; }
+.pc-flags-h strong { color: #2f6f9e; font-weight: 600; }
+.pc-flag { border-left: 2px solid #e2ddd4; padding: 2px 0 2px 13px; margin-bottom: 14px; }
+.pc-flag.alert { border-left-color: #c2603f; }
+.pc-flag.ok { border-left-color: #4f8a6a; }
+.pc-flag-t { font-size: 14.5px; font-weight: 600; color: #0e1518; }
+.pc-flag-b { font-size: 13.5px; line-height: 1.55; color: #5a666c; margin-top: 4px; }
+
+.pc-sub { margin: 20px 0 10px; font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #8a9296; }
+.pc-sub small { font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 11.5px; color: #b0b6b9; }
+.pc-app { border: 1px solid #e2ddd4; border-radius: 2px; padding: 11px 13px; margin-bottom: 8px; background: #fff; }
+.pc-app.live { border-color: #c2603f; background: #fdf8f6; }
+.pc-app-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.pc-app-h span { font-size: 13.5px; font-weight: 600; color: #0e1518; }
+.pc-app-h em { flex-shrink: 0; font-style: normal; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #8a9296; }
+.pc-app.live .pc-app-h em { color: #c2603f; }
+.pc-app-m { font-size: 12px; color: #8a9296; margin-top: 3px; }
+.pc-app-d { font-size: 13px; line-height: 1.5; color: #5a666c; margin-top: 6px; }
+.pc-cons { font-size: 13.5px; line-height: 1.6; color: #5a666c; padding-left: 13px; border-left: 2px solid #e2ddd4; margin-bottom: 11px; }
+
 .pc-empty { border: 1px dashed #e2ddd4; border-radius: 2px; padding: 30px 22px; text-align: center; font-size: 14px; line-height: 1.6; color: #8a9296; }
 .pc-err { border: 1px solid #e6d4d0; background: #fdf7f6; border-radius: 2px; padding: 18px; font-size: 14px; line-height: 1.55; color: #8a5a52; }
 .pc-spin { display: inline-block; width: 15px; height: 15px; border: 2px solid rgba(255,255,255,.35); border-top-color: #fff; border-radius: 50%; animation: pc-rot .7s linear infinite; }
@@ -109,6 +150,7 @@
   .pc-overlay { padding: 0; align-items: flex-end; }
   .pc-panel { max-width: none; max-height: 94vh; border-radius: 0; }
   .pc-body { grid-template-columns: 1fr; gap: 26px; padding: 22px 20px; }
+  .pc-opts, .pc-fields { grid-template-columns: 1fr; }
 }
 </style>
 </head>
@@ -1292,27 +1334,162 @@ class Component extends DCLogic {
     if (d.approximate) {
       html += '<div class="pc-note"><strong>Street-level match.</strong> This is the block, not a confirmed lot — check the PID against your title.</div>';
     }
-    html += '<button class="pc-cta" id="pcEstimate" type="button">Get an estimate for this parcel <span>&rarr;</span></button>';
+    html += '<div id="pcNext"></div>';
     html += '<div class="pc-note">Sources: ' + esc(d.sources.join(' · ')) +
       '. Preliminary only — Landev confirms zoning and servicing against the current bylaw before anything is relied on.</div>';
 
     outEl.innerHTML = html;
     tagEl.textContent = 'Result';
+    showGateCta(d);
+  }
 
-    var est = document.getElementById('pcEstimate');
-    if (est) {
-      est.addEventListener('click', function () {
-        var lines = [
-          'Parcel: ' + (d.address || ''),
-          p.pid ? 'PID ' + p.pid : '',
-          p.areaHa ? 'Lot area ' + fmt(p.areaHa) + ' ha (' + fmt(p.areaSqft) + ' sq.ft.)' : '',
-          z ? 'Zoning ' + z.code + (z.description ? ' — ' + z.description : '') : '',
-          p.municipality ? 'Municipality: ' + p.municipality : '',
-        ].filter(Boolean).join('. ');
-        close();
-        if (window.openInstantEstimate) window.openInstantEstimate(lines);
+  /* ---- Stage 2: the ask ------------------------------------------------ */
+
+  var INTENTS = [
+    { key: 'units', label: 'Add units or a suite', sub: 'Multiplex &amp; infill' },
+    { key: 'subdivide', label: 'Subdivide this lot' },
+    { key: 'build', label: 'Build on it' },
+    { key: 'buying', label: 'Considering buying it' },
+  ];
+
+  function showGateCta(d) {
+    var next = document.getElementById('pcNext');
+    if (!next) return;
+    next.innerHTML = '<button class="pc-cta" type="button" id="pcReveal">' +
+      'See what\'s flagged on this parcel <span>&rarr;</span></button>';
+    document.getElementById('pcReveal').addEventListener('click', function () { showGateForm(d); });
+  }
+
+  function showGateForm(d) {
+    var next = document.getElementById('pcNext');
+    next.innerHTML =
+      '<div class="pc-gate">' +
+        '<div class="pc-gate-h">What are you trying to do?</div>' +
+        '<div class="pc-opts" id="pcOpts">' +
+          INTENTS.map(function (i) {
+            return '<button type="button" class="pc-opt" data-intent="' + i.key + '">' +
+              '<span>' + i.label + '</span>' +
+              (i.sub ? '<small>' + i.sub + '</small>' : '') + '</button>';
+          }).join('') +
+        '</div>' +
+        '<div class="pc-fields">' +
+          '<label class="pc-field"><span>Name <em>*</em></span><input type="text" id="pcName" autocomplete="name"></label>' +
+          '<label class="pc-field"><span>Email <em>*</em></span><input type="email" id="pcEmail" autocomplete="email"></label>' +
+          '<label class="pc-field"><span>Phone</span><input type="tel" id="pcPhone" autocomplete="tel"></label>' +
+        '</div>' +
+        '<div class="pc-gate-err" id="pcGateErr"></div>' +
+        '<button class="pc-cta" type="button" id="pcSubmit">Show me what\'s flagged <span>&rarr;</span></button>' +
+        '<div class="pc-note">We use this to send the summary and follow up about this parcel. No list, no sharing.</div>' +
+      '</div>';
+
+    var chosen = null;
+    var opts = document.getElementById('pcOpts');
+    opts.addEventListener('click', function (e) {
+      var btn = e.target.closest('.pc-opt');
+      if (!btn) return;
+      chosen = btn.getAttribute('data-intent');
+      Array.prototype.forEach.call(opts.children, function (c) { c.classList.toggle('on', c === btn); });
+    });
+
+    var submit = document.getElementById('pcSubmit');
+    submit.addEventListener('click', async function () {
+      var errEl = document.getElementById('pcGateErr');
+      var name = document.getElementById('pcName').value.trim();
+      var email = document.getElementById('pcEmail').value.trim();
+      var phone = document.getElementById('pcPhone').value.trim();
+
+      if (!chosen) return (errEl.textContent = 'Pick what you\'re trying to do.');
+      if (!name) return (errEl.textContent = 'Your name, please.');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return (errEl.textContent = 'That email doesn\'t look right.');
+      errEl.textContent = '';
+      submit.disabled = true;
+      submit.innerHTML = 'Checking the records… <span class="pc-spin"></span>';
+
+      try {
+        var resp = await fetch('/api/flags', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            intent: chosen, name: name, email: email, phone: phone,
+            pid: d.parcel.pid, address: d.address, municipality: d.parcel.municipality,
+            muniId: d.municipalityId, areaSqm: d.parcel.areaSqm,
+            zoningCode: d.zoning && d.zoning.code, parcelClass: d.parcel.parcelClass,
+            lng: d.center && d.center.lng, lat: d.center && d.center.lat,
+          }),
+        });
+        var out = await resp.json();
+        if (!resp.ok) throw new Error(out && out.error || 'failed');
+        renderFlags(d, out);
+      } catch (err) {
+        submit.disabled = false;
+        submit.innerHTML = 'Show me what\'s flagged <span>&rarr;</span>';
+        errEl.textContent = 'Couldn\'t reach the records just now. Try again, or call 604-989-7300.';
+      }
+    });
+
+    document.getElementById('pcName').focus();
+  }
+
+  /* ---- Stage 3: the reveal --------------------------------------------- */
+
+  function renderFlags(d, out) {
+    var next = document.getElementById('pcNext');
+    var html = '<div class="pc-flags">';
+    html += '<div class="pc-flags-h">Flagged for <strong>' + esc(out.intent.label.toLowerCase()) + '</strong></div>';
+
+    (out.facts || []).forEach(function (f) {
+      html += '<div class="pc-flag ' + esc(f.level) + '">' +
+        '<div class="pc-flag-t">' + esc(f.title) + '</div>' +
+        '<div class="pc-flag-b">' + esc(f.body) + '</div></div>';
+    });
+
+    var apps = out.applications || {};
+    if (apps.items && apps.items.length) {
+      html += '<div class="pc-sub">Application history';
+      if (apps.source) html += ' <small>' + esc(apps.source) + '</small>';
+      html += '</div>';
+      apps.items.forEach(function (a) {
+        html += '<div class="pc-app' + (a.live ? ' live' : '') + '">' +
+          '<div class="pc-app-h"><span>' + esc(a.title || a.file || 'Application') + '</span>' +
+          (a.status ? '<em>' + esc(a.status) + '</em>' : '') + '</div>' +
+          '<div class="pc-app-m">' + [a.type, a.file, a.applicant].filter(Boolean).map(esc).join(' · ') + '</div>' +
+          (a.detail ? '<div class="pc-app-d">' + esc(a.detail) + '</div>' : '') +
+          '</div>';
+      });
+      if (apps.truncated) {
+        html += '<div class="pc-note">' + apps.truncated + ' more on file.</div>';
+      }
+    }
+
+    if (out.considerations && out.considerations.length) {
+      html += '<div class="pc-sub">What usually governs this</div>';
+      out.considerations.forEach(function (c) {
+        html += '<div class="pc-cons">' + esc(c) + '</div>';
       });
     }
+
+    html += '<div class="pc-note">' + esc(out.disclaimer) + '</div>';
+    html += '<button class="pc-cta" type="button" id="pcEstimate">' +
+      'Get an estimate for this parcel <span>&rarr;</span></button>';
+    html += '</div>';
+
+    next.innerHTML = html;
+    tagEl.textContent = 'Flagged';
+    next.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    document.getElementById('pcEstimate').addEventListener('click', function () {
+      var p = d.parcel, z = d.zoning;
+      var lines = [
+        'Parcel: ' + (d.address || ''),
+        p.pid ? 'PID ' + p.pid : '',
+        p.areaHa ? 'Lot area ' + fmt(p.areaHa) + ' ha (' + fmt(p.areaSqft) + ' sq.ft.)' : '',
+        z ? 'Zoning ' + z.code + (z.description ? ' — ' + z.description : '') : '',
+        p.municipality ? 'Municipality: ' + p.municipality : '',
+        'I want to: ' + out.intent.label,
+      ].filter(Boolean).join('. ');
+      close();
+      if (window.openInstantEstimate) window.openInstantEstimate(lines);
+    });
   }
 
   async function run() {

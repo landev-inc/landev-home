@@ -109,8 +109,53 @@ adjusted to the image's aspect ratio, without which the export service fits the
 bbox its own way and the overlay no longer registers. A failed image load falls
 back to the plain dark panel.
 
-"Get an estimate for this parcel" hands the address, PID, area, zoning and
-municipality straight to the Instant Estimate chat as an opening message.
+### The lead gate
+
+The panel runs in three stages, all in the same box:
+
+1. **Free** — the parcel card above.
+2. **The ask** — "See what's flagged on this parcel" opens a short form: what
+   they're trying to do (add units / subdivide / build / considering buying),
+   plus name and email required, phone optional.
+3. **The reveal** — `POST /api/flags` captures the lead and returns what can
+   actually be evidenced for that lot.
+
+`api/flags.js` separates two kinds of content deliberately:
+
+- **`facts`** — each traceable to a public dataset. Open and refused
+  development applications, ALR status, strata parcels, missing zoning data.
+- **`considerations`** — judgement, written per intent, phrased as what usually
+  governs. These never assert a setback, a minimum lot size, or a fee for the
+  specific parcel.
+
+The permit history is the reason this gate is worth an email. For 1189 Wilson
+Cres it returns four applications including a refused development permit with
+all five variances it sought — the kind of thing that changes what a buyer will
+pay. Only Squamish, Sechelt and SCRD publish an applications service; elsewhere
+the section is absent rather than wrong.
+
+ALR is only ever reported **positively** — a failed query returns null rather
+than a confident "not in the ALR".
+
+### Where the leads go
+
+Right now: **the Vercel function logs only**, as `[lead] {json}`. That is fine
+for testing and lossy for a real funnel.
+
+For anywhere better, set `LEAD_WEBHOOK_URL` and each lead is POSTed there as
+JSON — point it at Zapier, Make, HubSpot, or an internal endpoint, no code
+change. Webhook failures are caught and never cost the visitor their answer.
+
+```bash
+vercel env add LEAD_WEBHOOK_URL production
+```
+
+The natural next step is writing them into the Supabase behind `land-dev-leads`
+so parcel enquiries land in the same CRM as the scraped leads.
+
+"Get an estimate for this parcel" closes the panel and hands the address, PID,
+area, zoning, municipality **and stated intent** to the Instant Estimate chat as
+an opening message.
 
 ## Local development
 
