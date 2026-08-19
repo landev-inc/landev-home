@@ -137,6 +137,60 @@ the section is absent rather than wrong.
 ALR is only ever reported **positively** — a failed query returns null rather
 than a confident "not in the ALR".
 
+### Zone write-ups
+
+`data/zones.js` holds a plain-language summary per zone, keyed
+`<municipalityId>:<ZONE_CODE>`. When a parcel's zone has a **verified** entry,
+it renders at the top of the flagged panel with its source links.
+
+**This is deliberately not an LLM call at request time.** The write-up for a
+zone is identical for every parcel in it, so generating it per visitor buys
+nothing and costs accuracy: an ungrounded model produces plausible setbacks and
+parking minimums rather than correct ones, and a wrong number on Landev's own
+site is a professional problem rather than a UX one. Zoning is a particularly
+bad case — Squamish replaced RS-1/RS-2/RS-3 with R-1 in 2024 under Bill 44, so
+a model reciting training data describes a bylaw that no longer exists.
+
+So: draft from the municipality's own page, have a person check it, serve from
+cache forever.
+
+```bash
+# draft from the District's page — the model may use ONLY that text
+node scripts/zones.mjs draft squamish R-1 \
+  --source https://squamish.ca/building-and-land-development/home-land-and-property-development/residential-zoning-changes/
+
+# see exactly what would be sent, no API call, no key needed
+node scripts/zones.mjs draft squamish R-1 --source <url> --dry-run
+
+# after reading it against the bylaw
+node scripts/zones.mjs verify squamish:R-1 --by "Your Name"
+
+node scripts/zones.mjs list --drafts
+```
+
+Two safeguards in `draft`: the prompt forbids using anything outside the
+fetched text and returns `{"insufficient": true}` rather than guessing, and
+every number the model emits is checked back against that text — anything not
+found verbatim is dropped with a warning before the entry is written.
+
+Entries can also just be hand-written. The script is a convenience, not the
+gate; the review is.
+
+**Only `verified` entries are served.** To look at a draft on the real site
+before signing off, set `ZONES_PREVIEW_DRAFTS=1` — the draft then renders
+labelled "Draft — not reviewed" in red, so a preview can't be mistaken for
+reviewed content. Unset it for production.
+
+There are ~693 distinct zone codes across the six municipalities (Squamish 122,
+Whistler 212, DNV 186, SCRD 96, Sechelt 60, Gibsons 17), so this is not a list
+to pre-fill. Misses are logged as `[zone-miss] <muni>:<ZONE>`, and
+
+```bash
+vercel logs --since 7d | node scripts/zones.mjs misses
+```
+
+ranks them, so drafting effort follows what visitors actually look up.
+
 ### Where the leads go
 
 Right now: **the Vercel function logs only**, as `[lead] {json}`. That is fine

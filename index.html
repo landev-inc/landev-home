@@ -142,6 +142,19 @@
 .pc-flag-t { font-size: 14.5px; font-weight: 600; color: #0e1518; }
 .pc-flag-b { font-size: 13.5px; line-height: 1.55; color: #5a666c; margin-top: 4px; }
 
+.pc-zone { border: 1px solid #d8e2ea; background: #f5f9fc; border-radius: 2px; padding: 14px 16px; margin-bottom: 16px; }
+.pc-zone-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.pc-zone-h strong { font-size: 14.5px; color: #0e1518; }
+.pc-zone-h em.draft { color: #c2603f; }
+.pc-zone-h em { font-style: normal; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #4f8a6a; flex-shrink: 0; }
+.pc-zone-s { font-size: 13.5px; line-height: 1.6; color: #3d4a50; }
+.pc-zone-p { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.pc-zone-p div { display: flex; gap: 10px; font-size: 13px; line-height: 1.5; }
+.pc-zone-p b { flex: 0 0 34%; font-weight: 500; color: #6c7a80; }
+.pc-zone-p span { color: #0e1518; }
+.pc-zone-c { margin-top: 10px; font-size: 13px; line-height: 1.5; color: #8a5a52; }
+.pc-zone-src { margin-top: 10px; font-size: 11.5px; color: #8a9296; }
+.pc-zone-src a { color: #2f6f9e; word-break: break-all; }
 .pc-sub { margin: 20px 0 10px; font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #8a9296; }
 .pc-sub small { font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 11.5px; color: #b0b6b9; }
 .pc-app { border: 1px solid #e2ddd4; border-radius: 2px; padding: 11px 13px; margin-bottom: 8px; background: #fff; }
@@ -1489,6 +1502,28 @@ class Component extends DCLogic {
     // own words read back is worth more than the generic label.
     var heading = out.intent.text || out.intent.label.toLowerCase();
     html += '<div class="pc-flags-h">Flagged for <strong>' + esc(heading) + '</strong></div>';
+
+    if (out.zone) {
+      var z = out.zone;
+      html += '<div class="pc-zone">' +
+        '<div class="pc-zone-h"><strong>Zone ' + esc(z.zone) + (z.title ? ' — ' + esc(z.title) : '') + '</strong>' +
+        '<em' + (z.unverified ? ' class="draft"' : '') + '>' +
+        (z.unverified ? 'Draft — not reviewed' : 'Verified' + (z.reviewedAt ? ' ' + esc(z.reviewedAt) : '')) +
+        '</em></div>' +
+        '<div class="pc-zone-s">' + esc(z.summary) + '</div>';
+      if (z.points && z.points.length) {
+        html += '<div class="pc-zone-p">' + z.points.map(function (pt) {
+          return '<div><b>' + esc(pt.label) + '</b><span>' + esc(pt.value) + '</span></div>';
+        }).join('') + '</div>';
+      }
+      if (z.caution) html += '<div class="pc-zone-c">' + esc(z.caution) + '</div>';
+      if (z.sources && z.sources.length) {
+        html += '<div class="pc-zone-src">From ' + z.sources.map(function (s, i) {
+          return '<a href="' + esc(s) + '" target="_blank" rel="noopener">' + esc(z.municipality || ('source ' + (i + 1))) + '</a>';
+        }).join(' · ') + '</div>';
+      }
+      html += '</div>';
+    }
 
     (out.facts || []).forEach(function (f) {
       html += '<div class="pc-flag ' + esc(f.level) + '">' +

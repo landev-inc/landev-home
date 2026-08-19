@@ -18,6 +18,8 @@
 //   Make, HubSpot, an internal endpoint). Without it leads appear in the
 //   Vercel function logs only.
 
+import { zoneFor } from '../data/zones.js';
+
 const SCRD = 'https://maps.scrd.ca/arcgis/rest/services';
 const SQUAMISH = 'https://services.arcgis.com/YCM10gnCAvCoAhpj/arcgis/rest/services';
 const SECHELT = 'https://services5.arcgis.com/rmOn23WtB0tm69No/arcgis/rest/services';
@@ -264,6 +266,14 @@ export default async function handler(req, res) {
       ? await Promise.all([fetchApplications(muniId, lng, lat), inALR(lng, lat)])
       : [{ supported: false, items: [] }, null];
 
+    // Only verified entries come back. A miss is logged rather than filled by
+    // a model at request time — `scripts/zones.mjs misses` reads these to rank
+    // what is worth drafting next.
+    const zone = zoneFor(muniId, b.zoningCode);
+    if (!zone && muniId && b.zoningCode) {
+      console.log(`[zone-miss] ${muniId}:${String(b.zoningCode).trim()}`);
+    }
+
     // Facts — each one traceable to a dataset.
     const facts = [];
 
@@ -324,6 +334,7 @@ export default async function handler(req, res) {
       ok: true,
       intent: { key: intentKey, label: intent.label, service: intent.service, text: intentText || null },
       facts,
+      zone,
       considerations: intent.considerations,
       applications: {
         supported: apps.supported,
@@ -342,6 +353,7 @@ export default async function handler(req, res) {
       ok: true,
       intent: { key: intentKey, label: intent.label, service: intent.service },
       facts: [],
+      zone: null,
       considerations: intent.considerations,
       applications: { supported: false, items: [], truncated: 0 },
       disclaimer: 'Preliminary, from public records. Some public records could not be reached just now.',
