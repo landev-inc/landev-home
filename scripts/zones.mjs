@@ -49,6 +49,7 @@ function flags(list) {
     if (a === '--source') out.source.push(list[++i]);
     else if (a === '--by') out.by = list[++i];
     else if (a === '--dry-run') out.dryRun = true;
+    else if (a === '--gemini') out.gemini = true;
     else if (a === '--drafts') out.drafts = true;
     else out._.push(a);
   }
@@ -146,7 +147,8 @@ async function draft() {
   const [muniId, zone] = f._;
   if (!muniId || !zone) die('usage: draft <muniId> <ZONE> --source <url> [--source <url>]');
   if (!MUNICIPALITIES[muniId]) die(`unknown municipality "${muniId}" — one of: ${Object.keys(MUNICIPALITIES).join(', ')}`);
-  if (!f.source.length) die('at least one --source <url> is required; entries are grounded in the municipality\'s own page, never in the model');
+  if (f.gemini) return draftWithGemini(muniId, zone, f);
+  if (!f.source.length) die('at least one --source <url> is required, or use --gemini to let Google Search find them');
 
   console.log(`Fetching ${f.source.length} source${f.source.length > 1 ? 's' : ''}…`);
   const texts = [];
@@ -272,10 +274,136 @@ async function misses() {
   });
 }
 
+// --------------------------------------------------- grounded draft (Gemini)
+
+const GEMINI_PROMPT = (muni, zone) => `You are researching one zone for a civil
+engineering firm's reference, for landowners in British Columbia.
+
+Research the ${zone} zone in ${muni}, BC, using Google Search.
+
+SOURCE RULES — these matter more than completeness:
+- Prefer the municipality's own website and its zoning bylaw above everything.
+- News articles, real estate blogs, and other firms' summaries are NOT
+  acceptable for a number. They routinely paraphrase a bylaw wrongly, and a
+  wrong setback published by this firm is a professional liability.
+- If a figure appears only on a third-party site and you cannot confirm it on
+  the municipality's own material, LEAVE IT OUT. An omission is correct; a
+  laundered number is not.
+- BC zoning changed materially in 2024 under Bill 44 (small-scale multi-unit
+  housing). Make sure what you report is current, not superseded.
+
+Write for a landowner or small developer. Plain, direct, calm. No hype.
+
+Return ONLY JSON, no markdown fence:
+{
+  "title": "the zone's name in the bylaw",
+  "summary": "2-3 sentences: what this zone is for and what it generally permits",
+  "points": [{"label": "Permitted forms", "value": "as the bylaw states it"}],
+  "caution": "optional single sentence about a trap in this zone",
+  "confidence": "high | medium | low — how well the municipality's own sources covered this",
+  "gaps": ["anything a reviewer must confirm in the bylaw directly"]
+}`;
+
+/**
+ * Drafts via Gemini with Google Search grounding. This is the same machinery
+ * behind the AI answers you get on Google: the model reads live pages rather
+ * than reciting training data, and returns the pages it used, which we keep as
+ * the entry's sources so a reviewer can check every claim.
+ *
+ * It still writes a draft. Grounding makes the review fast and checkable; it
+ * does not replace it, because grounding searches the whole web and a
+ * confident blog outranks a bylaw more often than you would like.
+ */
+async function draftWithGemini(muniId, zone, f) {
+  const muni = MUNICIPALITIES[muniId];
+  const prompt = GEMINI_PROMPT(muni, zone);
+
+  if (f.dryRun) {
+    console.log('--- PROMPT ---\n' + prompt);
+    console.log('\n[dry run] would call gemini-2.5-flash with the google_search tool. No API call made.');
+    return;
+  }
+
+  await loadEnv();
+  const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (!key) {
+    die('GEMINI_API_KEY not set (env or .env).\n' +
+        'Get one free at https://aistudio.google.com/apikey, then:\n' +
+        '  echo \'GEMINI_API_KEY=...\' >> .env');
+  }
+
+  console.log(`Researching ${zone} in ${muni} with Google Search grounding…`);
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        tools: [{ google_search: {} }],
+        generationConfig: { temperature: 0.2 },
+      }),
+    }
+  );
+  if (!res.ok) die(`Gemini ${res.status}: ${(await res.text()).slice(0, 400)}`);
+  const data = await res.json();
+
+  const cand = data.candidates?.[0];
+  const text = (cand?.content?.parts || []).map((p) => p.text || '').join('').trim();
+  if (!text) die('Gemini returned no text. Raw: ' + JSON.stringify(data).slice(0, 400));
+
+  let out;
+  try {
+    out = JSON.parse(text.replace(/^```(?:json)?/m, '').replace(/```\s*$/m, '').trim());
+  } catch {
+    die('Could not parse Gemini JSON:\n' + text.slice(0, 600));
+  }
+
+  // The pages it actually consulted. These become the entry's sources, so the
+  // reviewer checks claims against what the model read, not against a guess.
+  const chunks = cand?.groundingMetadata?.groundingChunks || [];
+  const sources = [...new Set(chunks.map((c) => c.web?.uri).filter(Boolean))];
+  const titles = chunks.map((c) => c.web?.title).filter(Boolean);
+
+  const official = sources.filter((u) => /squamish\.ca|scrd\.ca|sechelt\.ca|gibsons\.ca|whistler\.ca|dnv\.org|westvancouver\.ca|cnv\.org|civicweb/i.test(u));
+  console.log(`\nGrounded on ${sources.length} page(s); ${official.length} look municipal.`);
+  titles.slice(0, 8).forEach((tl, i) => console.log(`   ${i + 1}. ${tl}`));
+  if (!official.length) {
+    console.warn('\n  WARNING: none of the grounding sources look like a municipal site.');
+    console.warn('  Treat every number here as unconfirmed until checked against the bylaw.');
+  }
+
+  const { src, zones } = await readZones();
+  const key2 = `${muniId}:${zone}`;
+  zones[key2] = {
+    zone,
+    municipality: muni,
+    title: out.title || undefined,
+    summary: out.summary,
+    points: (out.points || []).map((p) => ({ label: p.label, value: p.value })),
+    caution: out.caution || undefined,
+    sources: sources.length ? sources : [],
+    status: 'draft',
+    draftedAt: new Date().toISOString().slice(0, 10),
+    draftedBy: 'gemini-2.5-flash + google search',
+    confidence: out.confidence || undefined,
+    gaps: out.gaps && out.gaps.length ? out.gaps : undefined,
+  };
+  await writeZones(src, zones);
+
+  console.log(`\nDrafted ${key2} — confidence: ${out.confidence || 'unstated'}`);
+  if (out.gaps?.length) {
+    console.log('Reviewer must confirm:');
+    out.gaps.forEach((g) => console.log('  - ' + g));
+  }
+  console.log(`\nNOT LIVE. Check each point against the cited sources, then:\n  node scripts/zones.mjs verify ${key2} --by "Your Name"`);
+}
+
 const commands = { draft, verify, list, misses };
 if (!commands[cmd]) {
   console.log(`usage:
   node scripts/zones.mjs draft <muniId> <ZONE> --source <url> [--source <url>] [--dry-run]
+  node scripts/zones.mjs draft <muniId> <ZONE> --gemini      # Google Search grounded
   node scripts/zones.mjs verify <muniId>:<ZONE> --by "Name"
   node scripts/zones.mjs list [--drafts]
   node scripts/zones.mjs misses     # pipe logs in: vercel logs --since 7d | node scripts/zones.mjs misses

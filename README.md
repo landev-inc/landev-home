@@ -155,7 +155,10 @@ So: draft from the municipality's own page, have a person check it, serve from
 cache forever.
 
 ```bash
-# draft from the District's page — the model may use ONLY that text
+# grounded on Google Search — finds its own sources and returns them
+node scripts/zones.mjs draft squamish RM-1 --gemini
+
+# or point it at a page yourself; the model may use ONLY that text
 node scripts/zones.mjs draft squamish R-1 \
   --source https://squamish.ca/building-and-land-development/home-land-and-property-development/residential-zoning-changes/
 
@@ -168,10 +171,25 @@ node scripts/zones.mjs verify squamish:R-1 --by "Your Name"
 node scripts/zones.mjs list --drafts
 ```
 
-Two safeguards in `draft`: the prompt forbids using anything outside the
-fetched text and returns `{"insufficient": true}` rather than guessing, and
-every number the model emits is checked back against that text — anything not
-found verbatim is dropped with a warning before the entry is written.
+Two drafting engines, same output and same review gate:
+
+**`--gemini`** uses Gemini with Google Search grounding — the machinery behind
+the AI answers on Google. The model reads live pages instead of reciting
+training data, and returns the pages it used, which are stored as the entry's
+`sources`. It also reports a `confidence` and a list of `gaps` a reviewer must
+confirm. Needs `GEMINI_API_KEY` (free key at
+[aistudio.google.com/apikey](https://aistudio.google.com/apikey)). The script
+warns loudly when none of the grounding sources look municipal — grounding
+searches the whole web, and a confident real-estate blog outranks a bylaw more
+often than you would like.
+
+**`--source <url>`** is the stricter path: it fetches the pages you name, the
+prompt forbids using anything outside that text and returns
+`{"insufficient": true}` rather than guessing, and every number the model emits
+is checked back against the fetched text — anything not found verbatim is
+dropped with a warning before the entry is written.
+
+Grounding makes review fast and checkable. It does not replace review.
 
 Entries can also just be hand-written. The script is a convenience, not the
 gate; the review is.

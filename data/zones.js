@@ -104,7 +104,13 @@ export function zoneFor(municipalityId, zoneCode) {
   if (!municipalityId || !zoneCode) return null;
   const entry = ZONES[`${municipalityId}:${String(zoneCode).trim()}`];
   if (!entry) return null;
-  if (entry.status === 'verified') return entry;
-  if (process.env.ZONES_PREVIEW_DRAFTS) return { ...entry, unverified: true };
-  return null;
+  if (entry.status !== 'verified' && !process.env.ZONES_PREVIEW_DRAFTS) return null;
+
+  // Only the reader-facing fields go out. `confidence`, `gaps` and `draftedBy`
+  // are notes for whoever reviews the entry and have no business on the page.
+  const { zone, municipality, title, summary, points, caution, sources, reviewedAt } = entry;
+  return {
+    zone, municipality, title, summary, points, caution, sources, reviewedAt,
+    ...(entry.status === 'verified' ? {} : { unverified: true }),
+  };
 }
