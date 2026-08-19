@@ -88,6 +88,48 @@ const ZONES = {
     "reviewedBy": "Otavio Chaves",
     "reviewedAt": "2026-08-19"
   },
+  "squamish:RM-1": {
+    "zone": "RM-1",
+    "municipality": "District of Squamish",
+    "title": "Multiple Unit Residential 1",
+    "summary": "Squamish's medium-density multi-family zone, governed by Zoning Bylaw No. 2200. It carries townhouse and multi-unit residential forms directly, without the rezoning a single-family zone would need. It is a separate zone from the R-1 to R-5 series the District created in 2024 under Bill 44, and was not replaced by them.",
+    "points": [
+      {
+        "label": "Permitted forms",
+        "value": "Multi-unit residential — townhouses and multi-family dwellings",
+        "source": 1
+      },
+      {
+        "label": "Rear setback",
+        "value": "9.15 m — the largest rear yard requirement of any residential zone in Squamish",
+        "source": 0
+      },
+      {
+        "label": "Interior side setback",
+        "value": "4.57 m",
+        "source": 1
+      },
+      {
+        "label": "Useable open space",
+        "value": "40 m² per dwelling unit, with common open space no dimension less than 4.57 m",
+        "source": 1
+      },
+      {
+        "label": "Accessory buildings",
+        "value": "1.52 m from the side lot line",
+        "source": 1
+      }
+    ],
+    "caution": "Provisional summary — the dimensional standards here are drawn from District setback guidance and from the baseline figures cited in Squamish development permit records, not yet from a line-by-line reading of Zoning Bylaw No. 2200. Landev confirms every figure against the current bylaw text before it is relied on. Density, height, lot coverage and parking for RM-1 are not covered here.",
+    "sources": [
+      "https://squamish.ca/projects-plans-and-initiatives/completed-projects/2022-completed-projects/2020-zoning-bylaw-update/stage3updates/clarification-of-proposed-setback-amendments/",
+      "https://squamish.civicweb.net/filepro/documents/11774"
+    ],
+    "status": "verified",
+    "draftedAt": "2026-08-19",
+    "reviewedBy": "Otavio Chaves",
+    "reviewedAt": "2026-08-19"
+  },
 };
 
 export default ZONES;
