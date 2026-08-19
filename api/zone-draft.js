@@ -112,7 +112,7 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           contents: [{ parts: [{ text: promptFor(muni, zone) }] }],
           ...(grounded ? { tools: [{ google_search: {} }] } : {}),
-          generationConfig: { temperature: 0.2, maxOutputTokens: 4096 },
+          generationConfig: { temperature: 0.2, maxOutputTokens: 8192 },
         }),
       }
     );
@@ -135,23 +135,6 @@ export default async function handler(req, res) {
       .map((p) => p.text)
       .join('')
       .trim();
-    if (!text) {
-      return res.status(502).json({
-        error: 'no answer text returned',
-        finishReason: cand?.finishReason || null,
-        // Thinking-only output usually means it ran out of room before
-        // answering, so surface the budget alongside.
-        usage: data.usageMetadata || null,
-      });
-    }
-
-    let out;
-    try {
-      out = JSON.parse(text.replace(/^```(?:json)?/m, '').replace(/```\s*$/m, '').trim());
-    } catch {
-      return res.status(502).json({ error: 'could not parse model JSON', text: text.slice(0, 800) });
-    }
-
     // &debug=1 reports the response shape rather than the entry. Grounding
     // metadata has moved between fields across Gemini versions, and a silently
     // ungrounded answer is the one failure this tool must not ship.
@@ -167,6 +150,28 @@ export default async function handler(req, res) {
         citationKeys: cand?.citationMetadata ? Object.keys(cand.citationMetadata) : null,
         finishReason: cand?.finishReason,
         usage: data.usageMetadata || null,
+      });
+    }
+
+    if (!text) {
+      return res.status(502).json({
+        error: 'no answer text returned',
+        finishReason: cand?.finishReason || null,
+        // Thinking-only output usually means it ran out of room before
+        // answering, so surface the budget alongside.
+        usage: data.usageMetadata || null,
+      });
+    }
+
+    let out;
+    try {
+      out = JSON.parse(text.replace(/^```(?:json)?/m, '').replace(/```\s*$/m, '').trim());
+    } catch {
+      return res.status(502).json({
+        error: 'could not parse model JSON',
+        finishReason: cand?.finishReason || null,
+        usage: data.usageMetadata || null,
+        text: text.slice(0, 800),
       });
     }
 
