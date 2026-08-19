@@ -109,7 +109,7 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           contents: [{ parts: [{ text: promptFor(muni, zone) }] }],
           ...(grounded ? { tools: [{ google_search: {} }] } : {}),
-          generationConfig: { temperature: 0.2 },
+          generationConfig: { temperature: 0.2, maxOutputTokens: 4096 },
         }),
       }
     );
@@ -124,8 +124,23 @@ export default async function handler(req, res) {
 
     const data = await upstream.json();
     const cand = data.candidates?.[0];
-    const text = (cand?.content?.parts || []).map((p) => p.text || '').join('').trim();
-    if (!text) return res.status(502).json({ error: 'no text returned', raw: JSON.stringify(data).slice(0, 400) });
+    // Gemini 3.x is a thinking model: it returns reasoning parts alongside the
+    // answer, marked `thought`. Concatenating everything yields the model's
+    // private reasoning; taking only unmarked parts yields the answer.
+    const text = (cand?.content?.parts || [])
+      .filter((p) => !p.thought && typeof p.text === 'string')
+      .map((p) => p.text)
+      .join('')
+      .trim();
+    if (!text) {
+      return res.status(502).json({
+        error: 'no answer text returned',
+        finishReason: cand?.finishReason || null,
+        // Thinking-only output usually means it ran out of room before
+        // answering, so surface the budget alongside.
+        usage: data.usageMetadata || null,
+      });
+    }
 
     let out;
     try {
