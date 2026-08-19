@@ -177,8 +177,15 @@ Two drafting engines, same output and same review gate:
 the AI answers on Google. The model reads live pages instead of reciting
 training data, and returns the pages it used, which are stored as the entry's
 `sources`. It also reports a `confidence` and a list of `gaps` a reviewer must
-confirm. Needs `GEMINI_API_KEY` (free key at
-[aistudio.google.com/apikey](https://aistudio.google.com/apikey)). The script
+confirm.
+
+Needs `GEMINI_API_KEY` (free key at
+[aistudio.google.com/apikey](https://aistudio.google.com/apikey)) **in your
+local environment** — this script runs on your machine, not on Vercel, so a key
+added only in the Vercel dashboard will not be picked up. Either put it in
+`.env`, or add it to the project and run `vercel env pull` (the script reads
+`.env.local` too, which is where that writes). Note that a variable stored as
+*Sensitive* in Vercel pulls down as a placeholder rather than the real value. The script
 warns loudly when none of the grounding sources look municipal — grounding
 searches the whole web, and a confident real-estate blog outranks a bylaw more
 often than you would like.

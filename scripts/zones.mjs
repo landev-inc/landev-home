@@ -58,15 +58,25 @@ function flags(list) {
 
 const die = (msg) => { console.error(msg); process.exit(1); };
 
+/**
+ * Reads .env and .env.local. Both, because `vercel env pull` writes
+ * .env.local by default, so a key pulled down from the project works without
+ * anyone having to move it first.
+ *
+ * Note this runs on your machine, not on Vercel — the drafting tool is
+ * authoring, not runtime. A key added only in the Vercel dashboard is not
+ * visible here until it is pulled down.
+ */
 async function loadEnv() {
-  if (process.env.OPENAI_API_KEY) return;
-  try {
-    const env = await readFile(fileURLToPath(new URL('.env', ROOT)), 'utf8');
-    for (const line of env.split('\n')) {
-      const m = line.match(/^\s*([\w.-]+)\s*=\s*(.*)\s*$/);
-      if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
-    }
-  } catch { /* no .env — draft will report the missing key */ }
+  for (const name of ['.env', '.env.local']) {
+    try {
+      const env = await readFile(fileURLToPath(new URL(name, ROOT)), 'utf8');
+      for (const line of env.split('\n')) {
+        const m = line.match(/^\s*(?:export\s+)?([\w.-]+)\s*=\s*(.*?)\s*$/);
+        if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+      }
+    } catch { /* file absent — the caller reports the missing key */ }
+  }
 }
 
 /** Readable text from an HTML page, with scripts, styles and nav stripped. */
