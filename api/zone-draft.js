@@ -15,6 +15,14 @@
 //   ZONE_DRAFT_TOKEN  — any long random string you choose; without it the
 //                       endpoint is a free way for strangers to spend your
 //                       Gemini quota.
+//
+// Optional:
+//   GEMINI_MODEL      — defaults to gemini-3.6-flash.
+
+// Google retires model ids without much notice — 2.5-flash stopped accepting
+// new users mid-2026 — so this is overridable from the dashboard rather than
+// being a code change.
+const MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 
 const MUNICIPALITIES = {
   squamish: 'District of Squamish',
@@ -88,7 +96,7 @@ export default async function handler(req, res) {
 
   try {
     const upstream = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -137,7 +145,7 @@ export default async function handler(req, res) {
       sources,
       status: 'draft',
       draftedAt: new Date().toISOString().slice(0, 10),
-      draftedBy: 'gemini-2.5-flash + google search',
+      draftedBy: `${MODEL} + google search`,
       confidence: out.confidence || undefined,
       gaps: out.gaps?.length ? out.gaps : undefined,
     };

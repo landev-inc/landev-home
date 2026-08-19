@@ -330,7 +330,7 @@ async function draftWithGemini(muniId, zone, f) {
 
   if (f.dryRun) {
     console.log('--- PROMPT ---\n' + prompt);
-    console.log('\n[dry run] would call gemini-2.5-flash with the google_search tool. No API call made.');
+    console.log('\n[dry run] would call gemini-3.6-flash with the google_search tool. No API call made.');
     return;
   }
 
@@ -344,7 +344,7 @@ async function draftWithGemini(muniId, zone, f) {
 
   console.log(`Researching ${zone} in ${muni} with Google Search grounding…`);
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -395,7 +395,7 @@ async function draftWithGemini(muniId, zone, f) {
     sources: sources.length ? sources : [],
     status: 'draft',
     draftedAt: new Date().toISOString().slice(0, 10),
-    draftedBy: 'gemini-2.5-flash + google search',
+    draftedBy: 'gemini-3.6-flash + google search',
     confidence: out.confidence || undefined,
     gaps: out.gaps && out.gaps.length ? out.gaps : undefined,
   };
