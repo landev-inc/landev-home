@@ -94,10 +94,13 @@ export default async function handler(req, res) {
   }
   if (!zone) return res.status(400).json({ error: 'zone required, e.g. &zone=RM-1' });
 
-  // &mode=plain drops the search tool. Google meters grounded requests
-  // separately from ordinary ones, so when a draft comes back 429 this says
-  // which limit was hit: if plain succeeds, the key and model are fine and it
-  // is grounding that needs a plan.
+  // &mode=plain drops the search tool, purely to tell quota errors apart:
+  // Google meters grounded requests separately, so if a draft 429s but plain
+  // does not, the key and model are fine and it is Search grounding that needs
+  // a billed plan. Plain mode is a diagnostic only — the prompt tells the
+  // model to research with Google Search, so without the tool it reasonably
+  // ends in MALFORMED_FUNCTION_CALL. A quota error, or its absence, is the
+  // signal here; the answer is not.
   const grounded = String(req.query?.mode || '') !== 'plain';
 
   try {
