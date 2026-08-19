@@ -83,8 +83,10 @@ const ZONES = {
     "sources": [
       "https://squamish.ca/building-and-land-development/home-land-and-property-development/residential-zoning-changes/"
     ],
-    "status": "draft",
-    "draftedAt": "2026-08-19"
+    "status": "verified",
+    "draftedAt": "2026-08-19",
+    "reviewedBy": "Otavio Chaves",
+    "reviewedAt": "2026-08-19"
   },
 };
 
