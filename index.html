@@ -165,7 +165,6 @@
 .pc-app.live .pc-app-h em { color: #c2603f; }
 .pc-app-m { font-size: 12px; color: #8a9296; margin-top: 3px; }
 .pc-app-d { font-size: 13px; line-height: 1.5; color: #5a666c; margin-top: 6px; }
-.pc-cons { font-size: 13.5px; line-height: 1.6; color: #5a666c; padding-left: 13px; border-left: 2px solid #e2ddd4; margin-bottom: 11px; }
 
 .pc-empty { border: 1px dashed #e2ddd4; border-radius: 2px; padding: 30px 22px; text-align: center; font-size: 14px; line-height: 1.6; color: #8a9296; }
 .pc-err { border: 1px solid #e6d4d0; background: #fdf7f6; border-radius: 2px; padding: 18px; font-size: 14px; line-height: 1.55; color: #8a5a52; }
@@ -1367,8 +1366,6 @@ class Component extends DCLogic {
       html += '<div class="pc-note"><strong>Street-level match.</strong> This is the block, not a confirmed lot — check the PID against your title.</div>';
     }
     html += '<div id="pcNext"></div>';
-    html += '<div class="pc-note">Sources: ' + esc(d.sources.join(' · ')) +
-      '. Preliminary only — Landev confirms zoning and servicing against the current bylaw before anything is relied on.</div>';
 
     outEl.innerHTML = html;
     tagEl.textContent = 'Result';
@@ -1549,16 +1546,9 @@ class Component extends DCLogic {
       }
     }
 
-    if (out.considerations && out.considerations.length) {
-      html += '<div class="pc-sub">What usually governs this</div>';
-      out.considerations.forEach(function (c) {
-        html += '<div class="pc-cons">' + esc(c) + '</div>';
-      });
-    }
-
     html += '<div class="pc-note">' + esc(out.disclaimer) + '</div>';
     html += '<button class="pc-cta" type="button" id="pcEstimate">' +
-      'Get an estimate for this parcel <span>&rarr;</span></button>';
+      'Talk to an engineer <span>&rarr;</span></button>';
     html += '</div>';
 
     next.innerHTML = html;

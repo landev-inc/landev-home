@@ -330,6 +330,20 @@ export default async function handler(req, res) {
       });
     }
 
+    // The panel now shows only what was found on this parcel, so it must never
+    // come back empty after asking someone for their email. When every check
+    // passes without a finding, say that plainly — "nothing flagged" is a real
+    // answer, and better than a blank box.
+    if (!facts.length && !zone) {
+      facts.push({
+        level: 'ok',
+        title: 'Nothing flagged on the public record',
+        body: apps.supported
+          ? 'No development applications, no ALR designation, and no title-class complication showing against this parcel. What governs it from here is servicing capacity and the zoning bylaw, which is where Landev would start.'
+          : 'No ALR designation or title-class complication showing. This municipality does not publish a development application tracker, so permit history has to be requested from them directly — Landev does that as part of a scope.',
+      });
+    }
+
     return res.status(200).json({
       ok: true,
       intent: { key: intentKey, label: intent.label, service: intent.service, text: intentText || null },
