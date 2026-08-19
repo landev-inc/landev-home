@@ -86,6 +86,17 @@ const INTENTS = {
       'If the site is steep, near a watercourse, or on an aquifer, geotechnical and environmental input joins the civil scope and moves both cost and schedule.',
     ],
   },
+  other: {
+    label: 'Something else',
+    service: 'Development Management',
+    // No assumption about the work, so these are the checks that apply to any
+    // civil scope. What they actually typed rides along on the lead.
+    considerations: [
+      'Whatever the plan is, the binding constraint is usually servicing rather than zoning — what the existing water, sanitary and storm infrastructure at the frontage can carry decides more than the zone does.',
+      'The approving authority and the permit path shape the schedule more than the design work. Knowing which application you are in front of, and what it requires up front, is what prevents a restart halfway through.',
+      'Site conditions — slope, watercourses, aquifer, flood — pull geotechnical and environmental work into the scope, and they are cheaper to establish now than after a design exists.',
+    ],
+  },
   buying: {
     label: 'Considering buying it',
     service: 'Development Management',
@@ -200,10 +211,16 @@ export default async function handler(req, res) {
   const phone = String(b.phone || '').trim();
   const intentKey = String(b.intent || '').trim();
   const intent = INTENTS[intentKey];
+  // Free text, only meaningful for "Something else". Capped so a paste can't
+  // bloat the lead record.
+  const intentText = String(b.intentText || '').trim().slice(0, 400);
 
   if (!name) return res.status(400).json({ error: 'name required', field: 'name' });
   if (!isEmail(email)) return res.status(400).json({ error: 'valid email required', field: 'email' });
   if (!intent) return res.status(400).json({ error: 'intent required', field: 'intent' });
+  if (intentKey === 'other' && !intentText) {
+    return res.status(400).json({ error: 'tell us what you have in mind', field: 'intentText' });
+  }
 
   const lng = Number(b.lng);
   const lat = Number(b.lat);
@@ -218,6 +235,7 @@ export default async function handler(req, res) {
     name, email, phone: phone || null,
     intent: intentKey,
     intentLabel: intent.label,
+    intentText: intentText || null,
     service: intent.service,
     parcel: {
       pid: b.pid || null,
@@ -304,7 +322,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       ok: true,
-      intent: { key: intentKey, label: intent.label, service: intent.service },
+      intent: { key: intentKey, label: intent.label, service: intent.service, text: intentText || null },
       facts,
       considerations: intent.considerations,
       applications: {

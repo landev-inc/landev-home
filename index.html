@@ -85,7 +85,17 @@
 .pc-eg { background: #fbfaf8; border: 1px solid #e2ddd4; border-radius: 2px; padding: 8px 12px; font: inherit; font-size: 13px; color: #5a666c; cursor: pointer; transition: border-color .2s ease, color .2s ease; }
 .pc-eg:hover { border-color: #0e1518; color: #0e1518; }
 
-.pc-result { display: flex; flex-direction: column; }
+.pc-result { display: flex; flex-direction: column; min-width: 0; }
+
+/* Once there's a result the search column has done its job — drop it and give
+   the parcel the full width, centred. */
+.pc-body.found { grid-template-columns: minmax(0, 620px); justify-content: center; }
+.pc-body.found .pc-ask { display: none; }
+.pc-bar { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e2ddd4; }
+.pc-bar span { font-size: 15px; font-weight: 600; color: #0e1518; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-bar button { flex-shrink: 0; background: none; border: 0; padding: 0; font: inherit; font-size: 13px; color: #2f6f9e; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.pc-bar button:hover { color: #0e1518; }
+.pc-body.found .pc-tag { display: none; }
 .pc-tag { font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #8a9296; margin-bottom: 12px; }
 .pc-card { border: 1px solid #e2ddd4; border-radius: 2px; overflow: hidden; }
 .pc-map { position: relative; aspect-ratio: 16 / 10; background: #16232a; display: block; width: 100%; }
@@ -109,6 +119,9 @@
 .pc-opt:hover { border-color: #0e1518; }
 .pc-opt.on { background: #0e1518; border-color: #0e1518; color: #fff; }
 .pc-opt.on small { color: rgba(255,255,255,0.65); }
+.pc-opt.wide { grid-column: 1 / -1; }
+.pc-other { width: 100%; margin-top: 8px; border: 1px solid #2f6f9e; border-radius: 2px; padding: 11px 13px; font: inherit; font-size: 14px; color: #0e1518; outline: none; animation: ie-rise .2s ease both; }
+.pc-other::placeholder { color: #9aa3a7; }
 
 .pc-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
 .pc-field { display: flex; flex-direction: column; gap: 5px; }
@@ -1196,8 +1209,8 @@ class Component extends DCLogic {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
     </div>
-    <div class="pc-body">
-      <div>
+    <div class="pc-body" id="pcBody">
+      <div class="pc-ask" id="pcAsk">
         <h2 class="pc-h2">What will this parcel actually require?</h2>
         <div class="pc-form">
           <input type="text" id="pcInput" placeholder="Address or PID" autocomplete="off" aria-label="Address or PID">
@@ -1207,6 +1220,10 @@ class Component extends DCLogic {
         <div class="pc-egs" id="pcEgs"></div>
       </div>
       <div class="pc-result">
+        <div class="pc-bar" id="pcBar" hidden>
+          <span id="pcBarQ"></span>
+          <button type="button" id="pcAgain">Check another parcel</button>
+        </div>
         <div class="pc-tag" id="pcTag">Result</div>
         <div id="pcOut"><div class="pc-empty">Enter an address or PID to pull the registered parcel and its zoning.</div></div>
       </div>
@@ -1225,6 +1242,8 @@ class Component extends DCLogic {
   var outEl   = document.getElementById('pcOut');
   var tagEl   = document.getElementById('pcTag');
   var egsEl   = document.getElementById('pcEgs');
+  var bodyEl  = document.getElementById('pcBody');
+  var barEl   = document.getElementById('pcBar');
   var busy = false;
 
   var EXAMPLES = [
@@ -1340,7 +1359,30 @@ class Component extends DCLogic {
 
     outEl.innerHTML = html;
     tagEl.textContent = 'Result';
+    enterResultMode(d.address || input.value.trim());
     showGateCta(d);
+  }
+
+  /* The search column has served its purpose once a parcel is on screen, so
+     collapse it and centre the result. A compact bar keeps the searched
+     address visible and offers the way back. */
+  function enterResultMode(label) {
+    bodyEl.classList.add('found');
+    barEl.hidden = false;
+    document.getElementById('pcBarQ').textContent = label;
+    bodyEl.scrollTop = 0;
+  }
+
+  /* Clears the collapsed layout but leaves whatever message is on screen. */
+  function exitFound() { bodyEl.classList.remove('found'); barEl.hidden = true; }
+
+  function exitResultMode() {
+    bodyEl.classList.remove('found');
+    barEl.hidden = true;
+    tagEl.textContent = 'Result';
+    outEl.innerHTML = '<div class="pc-empty">Enter an address or PID to pull the registered parcel and its zoning.</div>';
+    input.value = '';
+    input.focus();
   }
 
   /* ---- Stage 2: the ask ------------------------------------------------ */
@@ -1350,6 +1392,7 @@ class Component extends DCLogic {
     { key: 'subdivide', label: 'Subdivide this lot' },
     { key: 'build', label: 'Build on it' },
     { key: 'buying', label: 'Considering buying it' },
+    { key: 'other', label: 'Something else', wide: true },
   ];
 
   function showGateCta(d) {
@@ -1367,11 +1410,13 @@ class Component extends DCLogic {
         '<div class="pc-gate-h">What are you trying to do?</div>' +
         '<div class="pc-opts" id="pcOpts">' +
           INTENTS.map(function (i) {
-            return '<button type="button" class="pc-opt" data-intent="' + i.key + '">' +
+            return '<button type="button" class="pc-opt' + (i.wide ? ' wide' : '') + '" data-intent="' + i.key + '">' +
               '<span>' + i.label + '</span>' +
               (i.sub ? '<small>' + i.sub + '</small>' : '') + '</button>';
           }).join('') +
         '</div>' +
+        '<input type="text" class="pc-other" id="pcOther" hidden ' +
+          'placeholder="What are you hoping to do with it?" aria-label="Describe what you want to do">' +
         '<div class="pc-fields">' +
           '<label class="pc-field"><span>Name <em>*</em></span><input type="text" id="pcName" autocomplete="name"></label>' +
           '<label class="pc-field"><span>Email <em>*</em></span><input type="email" id="pcEmail" autocomplete="email"></label>' +
@@ -1384,11 +1429,14 @@ class Component extends DCLogic {
 
     var chosen = null;
     var opts = document.getElementById('pcOpts');
+    var otherEl = document.getElementById('pcOther');
     opts.addEventListener('click', function (e) {
       var btn = e.target.closest('.pc-opt');
       if (!btn) return;
       chosen = btn.getAttribute('data-intent');
       Array.prototype.forEach.call(opts.children, function (c) { c.classList.toggle('on', c === btn); });
+      otherEl.hidden = chosen !== 'other';
+      if (chosen === 'other') otherEl.focus();
     });
 
     var submit = document.getElementById('pcSubmit');
@@ -1398,7 +1446,9 @@ class Component extends DCLogic {
       var email = document.getElementById('pcEmail').value.trim();
       var phone = document.getElementById('pcPhone').value.trim();
 
+      var otherText = otherEl.value.trim();
       if (!chosen) return (errEl.textContent = 'Pick what you\'re trying to do.');
+      if (chosen === 'other' && !otherText) return (errEl.textContent = 'Tell us briefly what you have in mind.');
       if (!name) return (errEl.textContent = 'Your name, please.');
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return (errEl.textContent = 'That email doesn\'t look right.');
       errEl.textContent = '';
@@ -1410,7 +1460,7 @@ class Component extends DCLogic {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            intent: chosen, name: name, email: email, phone: phone,
+            intent: chosen, intentText: otherText, name: name, email: email, phone: phone,
             pid: d.parcel.pid, address: d.address, municipality: d.parcel.municipality,
             muniId: d.municipalityId, areaSqm: d.parcel.areaSqm,
             zoningCode: d.zoning && d.zoning.code, parcelClass: d.parcel.parcelClass,
@@ -1435,7 +1485,10 @@ class Component extends DCLogic {
   function renderFlags(d, out) {
     var next = document.getElementById('pcNext');
     var html = '<div class="pc-flags">';
-    html += '<div class="pc-flags-h">Flagged for <strong>' + esc(out.intent.label.toLowerCase()) + '</strong></div>';
+    // Echo what they actually typed when they picked "Something else" — their
+    // own words read back is worth more than the generic label.
+    var heading = out.intent.text || out.intent.label.toLowerCase();
+    html += '<div class="pc-flags-h">Flagged for <strong>' + esc(heading) + '</strong></div>';
 
     (out.facts || []).forEach(function (f) {
       html += '<div class="pc-flag ' + esc(f.level) + '">' +
@@ -1507,6 +1560,7 @@ class Component extends DCLogic {
 
       if (!d.found) {
         tagEl.textContent = 'No match';
+        exitFound();
         var msg = d.reason === 'no-parcel-at-address'
           ? 'That address resolved, but no registered parcel sits under it — it may be a road allowance or unsurveyed land. Try the PID from your title.'
           : d.reason === 'pid-not-found'
@@ -1518,6 +1572,7 @@ class Component extends DCLogic {
       }
     } catch (err) {
       tagEl.textContent = 'Error';
+      exitFound();
       outEl.innerHTML = '<div class="pc-err">The parcel service didn\'t respond. Try again in a moment, or call us at 604-989-7300.</div>';
     }
 
@@ -1542,6 +1597,7 @@ class Component extends DCLogic {
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && overlay.classList.contains('open')) close();
   });
+  document.getElementById('pcAgain').addEventListener('click', exitResultMode);
   goBtn.addEventListener('click', run);
   input.addEventListener('keydown', function (e) {
     if (e.key === 'Enter') { e.preventDefault(); run(); }
