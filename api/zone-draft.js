@@ -152,6 +152,24 @@ export default async function handler(req, res) {
       return res.status(502).json({ error: 'could not parse model JSON', text: text.slice(0, 800) });
     }
 
+    // &debug=1 reports the response shape rather than the entry. Grounding
+    // metadata has moved between fields across Gemini versions, and a silently
+    // ungrounded answer is the one failure this tool must not ship.
+    if (String(req.query?.debug || '') === '1') {
+      const gm = cand?.groundingMetadata || null;
+      return res.status(200).json({
+        model: MODEL,
+        candidateKeys: Object.keys(cand || {}),
+        groundingMetadataKeys: gm ? Object.keys(gm) : null,
+        webSearchQueries: gm?.webSearchQueries || null,
+        chunkCount: gm?.groundingChunks?.length ?? null,
+        firstChunk: gm?.groundingChunks?.[0] || null,
+        citationKeys: cand?.citationMetadata ? Object.keys(cand.citationMetadata) : null,
+        finishReason: cand?.finishReason,
+        usage: data.usageMetadata || null,
+      });
+    }
+
     const chunks = cand?.groundingMetadata?.groundingChunks || [];
     const sources = [...new Set(chunks.map((c) => c.web?.uri).filter(Boolean))];
     const titles = [...new Set(chunks.map((c) => c.web?.title).filter(Boolean))];
