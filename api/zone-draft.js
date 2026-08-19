@@ -94,6 +94,12 @@ export default async function handler(req, res) {
   }
   if (!zone) return res.status(400).json({ error: 'zone required, e.g. &zone=RM-1' });
 
+  // &mode=plain drops the search tool. Google meters grounded requests
+  // separately from ordinary ones, so when a draft comes back 429 this says
+  // which limit was hit: if plain succeeds, the key and model are fine and it
+  // is grounding that needs a plan.
+  const grounded = String(req.query?.mode || '') !== 'plain';
+
   try {
     const upstream = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`,
@@ -102,7 +108,7 @@ export default async function handler(req, res) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: promptFor(muni, zone) }] }],
-          tools: [{ google_search: {} }],
+          ...(grounded ? { tools: [{ google_search: {} }] } : {}),
           generationConfig: { temperature: 0.2 },
         }),
       }
@@ -113,7 +119,7 @@ export default async function handler(req, res) {
       console.error('gemini error:', detail);
       // Surface Google's own message — it is usually the actionable part
       // (quota, grounding not enabled, bad key).
-      return res.status(502).json({ error: 'gemini rejected the request', detail });
+      return res.status(502).json({ error: 'gemini rejected the request', grounded, model: MODEL, detail });
     }
 
     const data = await upstream.json();
