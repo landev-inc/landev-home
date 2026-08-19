@@ -63,10 +63,12 @@ zoning. No API keys — every source is public open data:
 | ParcelMap BC (LTSA cadastre, WFS) | PID, registered plan, parcel class, area, municipality, lot geometry |
 | Municipal ArcGIS FeatureServers | zoning code, description, OCP, bylaw |
 
-The zoning layer is chosen from the **parcel's own** `MUNICIPALITY` value, which
-is why one address box works across every community Landev serves without
-asking the visitor which city they're in. Layers are configured in the `ZONING`
-table in `api/parcel.js`; adding a municipality means adding one entry.
+One address box works across every community Landev serves, so the endpoint has
+to work out the municipality itself. It keys on the **geocoder's locality**,
+falling back to PMBC's `MUNICIPALITY` column — that order matters, because PMBC
+reports `"Rural"` for strata and air-space records, including ones in West
+Vancouver. Communities are listed in `MUNICIPALITIES` and their zoning layers in
+`ZONING`; adding one means adding an entry to each.
 
 Currently wired: Squamish, Sechelt, Gibsons, Whistler, District of North
 Vancouver, and SCRD electoral areas. West Vancouver and the City of North
@@ -76,9 +78,39 @@ full lot data with `zoning: null` and the card says so rather than guessing.
 Zoning failures are deliberately non-fatal — if a municipal server is down, the
 parcel card still renders.
 
-The result panel draws the real lot outline as an SVG from the returned
-geometry, and its "Get an estimate for this parcel" button hands the parcel
-straight to the Instant Estimate chat as an opening message.
+### Picking the right parcel
+
+This is the fiddly part, and getting it wrong is not obvious from the output —
+it just quietly returns a different lot.
+
+A bbox query returns every parcel whose *bounding box* clips the search box,
+which on a dense block is dozens, and on a strata development is hundreds
+stacked on one footprint (6691 Nelson Ave returns 158 strata lots, an air space
+parcel, and the fee-simple lot beneath, all with identical geometry). Taking the
+first result gives an arbitrary one. So `pickParcel`:
+
+1. drops road parcels and records with no PID,
+2. keeps only parcels that **actually contain** the point (ray casting, not
+   bbox overlap),
+3. prefers `PARCEL_CLASS === 'Subdivision'` — the ordinary fee-simple lot civil
+   work is scoped against — over strata, air space and interest records,
+4. then takes the smallest.
+
+The count is deliberately high (200): the correct lot is often not among the
+first few results.
+
+### The map
+
+The result panel draws the true lot outline over Esri World Imagery (free, with
+attribution — the same basemap the `land-dev-leads` scraper uses). Both the
+imagery request and the polygon are projected to Web Mercator so the outline
+lands on the actual boundaries rather than drifting; the padded extent is
+adjusted to the image's aspect ratio, without which the export service fits the
+bbox its own way and the overlay no longer registers. A failed image load falls
+back to the plain dark panel.
+
+"Get an estimate for this parcel" hands the address, PID, area, zoning and
+municipality straight to the Instant Estimate chat as an opening message.
 
 ## Local development
 

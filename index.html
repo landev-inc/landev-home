@@ -1204,28 +1204,43 @@ class Component extends DCLogic {
     egsEl.appendChild(b);
   });
 
-  /* Draws the real lot outline from the returned GeoJSON. Longitude is scaled
-     by cos(latitude) so the parcel keeps its true shape instead of being
-     stretched sideways — at 49°N a degree of longitude is about two thirds of
-     a degree of latitude. */
+  /* Draws the real lot outline over Esri aerial imagery.
+     Everything is projected to Web Mercator (EPSG:3857) first — the same
+     projection the imagery is rendered in — so the outline lands exactly on
+     the roofs and driveways underneath instead of drifting. Working in raw
+     lng/lat would stretch the parcel sideways: at 49°N a degree of longitude
+     covers about two thirds the ground distance of a degree of latitude. */
+  var IMAGERY = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export';
+
   function outline(geometry, bbox) {
     if (!geometry || !bbox) return '';
-    var W = 640, H = 400, PAD = 34;
-    var kx = Math.cos(((bbox[1] + bbox[3]) / 2) * Math.PI / 180) || 1;
-    var w = (bbox[2] - bbox[0]) * kx, h = bbox[3] - bbox[1];
-    if (!(w > 0) || !(h > 0)) return '';
-    var scale = Math.min((W - PAD * 2) / w, (H - PAD * 2) / h);
-    var ox = (W - w * scale) / 2, oy = (H - h * scale) / 2;
-    var px = function (lng) { return ox + (lng - bbox[0]) * kx * scale; };
-    var py = function (lat) { return H - (oy + (lat - bbox[1]) * scale); };
+    var W = 640, H = 400;
+
+    var R = 6378137;
+    var mx = function (lng) { return R * lng * Math.PI / 180; };
+    var my = function (lat) { return R * Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI / 180) / 2)); };
 
     var rings = [];
-    (function walk(node, depth) {
+    (function walk(node) {
       if (!Array.isArray(node)) return;
       if (Array.isArray(node[0]) && typeof node[0][0] === 'number') { rings.push(node); return; }
-      node.forEach(function (n) { walk(n, depth + 1); });
-    })(geometry.coordinates, 0);
+      node.forEach(walk);
+    })(geometry.coordinates);
     if (!rings.length) return '';
+
+    var x0 = mx(bbox[0]), x1 = mx(bbox[2]), y0 = my(bbox[1]), y1 = my(bbox[3]);
+    var cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+
+    // Pad so the lot doesn't touch the frame, then widen the shorter side until
+    // the extent matches the image's aspect ratio — otherwise the export
+    // service fits the bbox its own way and the overlay no longer lines up.
+    var halfW = Math.max((x1 - x0) / 2, 12) * 1.55;
+    var halfH = Math.max((y1 - y0) / 2, 12) * 1.55;
+    if (halfW / halfH > W / H) halfH = halfW * H / W; else halfW = halfH * W / H;
+
+    var minX = cx - halfW, maxX = cx + halfW, minY = cy - halfH, maxY = cy + halfH;
+    var px = function (lng) { return ((mx(lng) - minX) / (maxX - minX)) * W; };
+    var py = function (lat) { return H - ((my(lat) - minY) / (maxY - minY)) * H; };
 
     var paths = rings.map(function (ring) {
       return ring.map(function (pt, i) {
@@ -1233,12 +1248,16 @@ class Component extends DCLogic {
       }).join(' ') + ' Z';
     }).join(' ');
 
-    return '<svg class="pc-map" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Parcel outline">' +
-      '<defs><pattern id="pcGrid" width="40" height="40" patternUnits="userSpaceOnUse">' +
-        '<path d="M40 0H0V40" fill="none" stroke="#22323a" stroke-width="1"/></pattern></defs>' +
+    var img = IMAGERY + '?bbox=' + [minX, minY, maxX, maxY].join(',') +
+      '&bboxSR=3857&imageSR=3857&size=' + W + ',' + H + '&format=jpg&f=image';
+
+    // The dark rect stays behind the photo so a failed or slow image load
+    // degrades to the same panel the outline always sat on.
+    return '<svg class="pc-map" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Parcel outline on aerial imagery">' +
       '<rect width="' + W + '" height="' + H + '" fill="#16232a"/>' +
-      '<rect width="' + W + '" height="' + H + '" fill="url(#pcGrid)"/>' +
-      '<path d="' + paths + '" fill="rgba(47,111,158,0.28)" stroke="#5fb0e5" stroke-width="2.5" stroke-linejoin="round"/>' +
+      '<image href="' + esc(img) + '" x="0" y="0" width="' + W + '" height="' + H + '" preserveAspectRatio="none"/>' +
+      '<path d="' + paths + '" fill="rgba(95,176,229,0.16)" stroke="#5fb0e5" stroke-width="2.5" stroke-linejoin="round"/>' +
+      '<text x="' + (W - 8) + '" y="' + (H - 8) + '" text-anchor="end" font-family="Archivo,sans-serif" font-size="11" fill="rgba(255,255,255,0.75)">Imagery © Esri</text>' +
       '</svg>';
   }
 

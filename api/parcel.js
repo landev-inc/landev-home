@@ -3,9 +3,9 @@
 // GET /api/parcel?q=<street address or PID>
 //
 // No API keys. Every source below is public open data:
-//   • BC Address Geocoder (province) — address -> coordinates
+//   • BC Address Geocoder (province) — address <-> coordinates and locality
 //   • ParcelMap BC / PMBC parcel fabric (LTSA, Open Government Licence – BC)
-//     — coordinates -> PID, registered plan, parcel class, area, municipality
+//     — coordinates -> PID, registered plan, parcel class, area, lot geometry
 //   • Municipal ArcGIS FeatureServers — coordinates -> zoning
 //
 // Requests are proxied through here rather than made from the browser because
@@ -13,6 +13,7 @@
 // boundaries and zoning change on the order of months, so responses cache well.
 
 const GEOCODER = 'https://geocoder.api.gov.bc.ca/addresses.json';
+const REVERSE = 'https://geocoder.api.gov.bc.ca/sites/nearest.json';
 const PMBC_WFS = 'https://openmaps.gov.bc.ca/geo/pub/WHSE_CADASTRE.PMBC_PARCEL_FABRIC_POLY_SVW/ows';
 const PMBC_TYPE = 'pub:WHSE_CADASTRE.PMBC_PARCEL_FABRIC_POLY_SVW';
 const PMBC_FIELDS = [
@@ -37,55 +38,76 @@ const RMOW = 'https://services7.arcgis.com/gENeutiVOvqS3PuS/arcgis/rest/services
 const DNV = 'https://geoweb.dnv.org/arcgis/rest/services';
 
 /**
- * Zoning layers keyed by the MUNICIPALITY string PMBC returns for the parcel.
- * Keying on the parcel's own municipality (rather than asking the visitor
- * which city they're in) is what lets a single address box work across every
- * community Landev serves.
+ * The communities Landev serves, each with the names the two upstream sources
+ * call it by.
  *
- * `read` maps that layer's attribute names onto our shape — every municipality
- * names these columns differently.
+ * `locality` is what the BC Geocoder returns and is the primary key, because
+ * PMBC's own MUNICIPALITY column is unreliable on strata and air-space
+ * records — a West Vancouver strata lot reports "Rural", which would route it
+ * to the wrong region and the wrong zoning service. `pmbc` is the fallback.
+ */
+const MUNICIPALITIES = [
+  { id: 'squamish', label: 'District of Squamish', region: 'Sea-to-Sky', office: 'Squamish',
+    locality: ['Squamish'], pmbc: ['Squamish, District of'] },
+  { id: 'whistler', label: 'Resort Municipality of Whistler', region: 'Sea-to-Sky', office: 'Squamish',
+    locality: ['Whistler'], pmbc: ['Whistler, Resort Municipality of'] },
+  { id: 'gibsons', label: 'Town of Gibsons', region: 'Sunshine Coast', office: 'Gibsons',
+    locality: ['Gibsons'], pmbc: ['Gibsons, Town of'] },
+  { id: 'sechelt', label: 'District of Sechelt', region: 'Sunshine Coast', office: 'Gibsons',
+    locality: ['Sechelt', 'District of Sechelt'], pmbc: ['Sechelt, District of'] },
+  { id: 'westvan', label: 'District of West Vancouver', region: 'North Shore', office: 'West Vancouver',
+    locality: ['West Vancouver'], pmbc: ['West Vancouver, The Corporation of the District of'] },
+  { id: 'dnv', label: 'District of North Vancouver', region: 'North Shore', office: 'West Vancouver',
+    locality: ['District of North Vancouver'], pmbc: ['North Vancouver, District of'] },
+  { id: 'cnv', label: 'City of North Vancouver', region: 'North Shore', office: 'West Vancouver',
+    locality: ['City of North Vancouver'], pmbc: ['North Vancouver, City of'] },
+  // Electoral areas — Roberts Creek, Halfmoon Bay, Egmont and the rest. PMBC
+  // labels them all "Rural" and the geocoder returns the community name, so
+  // this is reached by fallback rather than by an exhaustive locality list.
+  { id: 'scrd', label: 'Sunshine Coast Regional District', region: 'Sunshine Coast', office: 'Gibsons',
+    locality: [], pmbc: ['Rural'] },
+];
+
+/**
+ * Zoning layers by municipality id. Adding a community means adding one entry
+ * here plus its names above. `read` maps that layer's columns onto our shape —
+ * every municipality names them differently.
  *
- * Municipalities absent from this table still get the full parcel card; they
- * just have no public zoning service to query. West Vancouver and the City of
- * North Vancouver are in that group.
+ * West Vancouver and the City of North Vancouver publish no publicly reachable
+ * zoning service, so they are absent and their parcels return zoning: null.
  */
 const ZONING = {
-  'Squamish, District of': {
+  squamish: {
     url: `${SQUAMISH}/Zoning/FeatureServer/31`,
     fields: 'ZONE_CODE,ZONE_DES,LandUseDesignation,Zoning_Bylaw',
     source: 'District of Squamish',
     read: (p) => ({ code: p.ZONE_CODE, description: p.ZONE_DES, ocp: p.LandUseDesignation, bylaw: p.Zoning_Bylaw }),
   },
-  'Sechelt, District of': {
+  sechelt: {
     url: `${SCRD}/Sechelt/dosPlanning/MapServer/1`,
     fields: 'ZONING,BYLAW_DOC_,ZONING_SIT,OCP_SITE_L',
     source: 'District of Sechelt / SCRD',
     read: (p) => ({ code: p.ZONING, description: null, ocp: p.OCP_SITE_L, bylaw: p.BYLAW_DOC_ }),
   },
-  'Gibsons, Town of': {
+  gibsons: {
     url: `${SCRD}/togPlanning_OCPandZoning/MapServer/87`,
     fields: 'ZoningBylawCode,ZoningBylawCode_desc',
     source: 'Town of Gibsons / SCRD',
     read: (p) => ({ code: p.ZoningBylawCode, description: p.ZoningBylawCode_desc, ocp: null, bylaw: null }),
   },
-  'Whistler, Resort Municipality of': {
+  whistler: {
     url: `${RMOW}/Zoning_Designations/FeatureServer/2`,
     fields: 'ZONING',
     source: 'Resort Municipality of Whistler',
     read: (p) => ({ code: p.ZONING, description: null, ocp: null, bylaw: null }),
   },
-  'North Vancouver, District of': {
+  dnv: {
     url: `${DNV}/Data_DynamicLayers_Zoning/MapServer/0`,
     fields: 'Zoning',
     source: 'District of North Vancouver',
     read: (p) => ({ code: p.Zoning, description: null, ocp: null, bylaw: null }),
   },
-  // PMBC labels every electoral area — Roberts Creek, Halfmoon Bay, Egmont and
-  // the rest — simply "Rural", with no way to tell SCRD from SLRD. Pointing
-  // that at the SCRD layer is safe because the query is spatial: a parcel
-  // outside SCRD intersects nothing and comes back with no zoning rather than
-  // the wrong zoning.
-  Rural: {
+  scrd: {
     url: `${SCRD}/mySCRDpub_PlanningDevelopment/MapServer/14`,
     fields: 'LANDUSE,SCHEDULE,BYLAW,DESCRIP',
     source: 'SCRD',
@@ -93,19 +115,18 @@ const ZONING = {
   },
 };
 
-/** Which Landev office covers the parcel — shown so the result feels local. */
-const REGION = {
-  'Squamish, District of': { region: 'Sea-to-Sky', office: 'Squamish' },
-  'Whistler, Resort Municipality of': { region: 'Sea-to-Sky', office: 'Squamish' },
-  'Gibsons, Town of': { region: 'Sunshine Coast', office: 'Gibsons' },
-  'Sechelt, District of': { region: 'Sunshine Coast', office: 'Gibsons' },
-  Rural: { region: 'Sunshine Coast', office: 'Gibsons' },
-  'West Vancouver, The Corporation of the District of': { region: 'North Shore', office: 'West Vancouver' },
-  'North Vancouver, District of': { region: 'North Shore', office: 'West Vancouver' },
-  'North Vancouver, City of': { region: 'North Shore', office: 'West Vancouver' },
-};
+/** Locality wins; PMBC's municipality is the fallback for PID-only lookups. */
+function resolveMunicipality(locality, pmbcName) {
+  const loc = (locality || '').trim();
+  const pmbc = (pmbcName || '').trim();
+  return (
+    MUNICIPALITIES.find((m) => m.locality.some((n) => n.toLowerCase() === loc.toLowerCase())) ||
+    MUNICIPALITIES.find((m) => m.pmbc.some((n) => n.toLowerCase() === pmbc.toLowerCase())) ||
+    null
+  );
+}
 
-const withTimeout = async (url, ms = 12000) => {
+const withTimeout = async (url, ms = 15000) => {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), ms);
   try {
@@ -139,10 +160,71 @@ async function wfs(cqlFilter, count = 1) {
     count: String(count),
     CQL_FILTER: cqlFilter,
   });
-  const res = await withTimeout(`${PMBC_WFS}?${params}`);
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data?.features?.[0] || null;
+  const res = await withTimeout(`${PMBC_WFS}?${params}`, 20000);
+  if (!res.ok) return [];
+  return (await res.json())?.features || [];
+}
+
+/** Every coordinate ring in a Polygon or MultiPolygon, holes included. */
+function ringsOf(geometry) {
+  const out = [];
+  const walk = (node) => {
+    if (!Array.isArray(node)) return;
+    if (Array.isArray(node[0]) && typeof node[0][0] === 'number') { out.push(node); return; }
+    node.forEach(walk);
+  };
+  walk(geometry?.coordinates);
+  return out;
+}
+
+/** Ray casting over every ring at once — an odd number of crossings means
+ *  inside, which also makes holes fall out correctly without special cases. */
+function containsPoint(geometry, lng, lat) {
+  let inside = false;
+  for (const ring of ringsOf(geometry)) {
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [xi, yi] = ring[i];
+      const [xj, yj] = ring[j];
+      if ((yi > lat) !== (yj > lat) &&
+          lng < ((xj - xi) * (lat - yi)) / (yj - yi || 1e-15) + xi) {
+        inside = !inside;
+      }
+    }
+  }
+  return inside;
+}
+
+/**
+ * Choose the parcel a geocoded point actually falls on.
+ *
+ * A tight bbox query returns everything whose *bounding box* clips the box,
+ * which on a dense block is dozens of lots. Worse, a strata development stacks
+ * many records on one footprint: 6691 Nelson Ave returns 158 strata lots, an
+ * air space parcel, and the underlying fee-simple lot, all with identical
+ * geometry and area. So test real containment first, then prefer the
+ * fee-simple lot — that is the parcel civil work is scoped against — and only
+ * then the smallest candidate.
+ */
+function pickParcel(features, lng, lat) {
+  const usable = (features || []).filter((f) => {
+    const p = f.properties || {};
+    return f.geometry && p.PID_FORMATTED && p.PARCEL_CLASS !== 'Road';
+  });
+  if (!usable.length) return null;
+
+  const containing = usable.filter((f) => containsPoint(f.geometry, lng, lat));
+  const pool = containing.length ? containing : usable;
+
+  // Subdivision is PMBC's class for an ordinary fee-simple lot. Everything
+  // else here — Building Strata, Bare Land Strata, Air Space, Interest — is a
+  // right layered over one.
+  const tier = (p) => (p.PARCEL_CLASS === 'Subdivision' ? 0 : 1);
+
+  return pool.sort((a, b) => {
+    const A = a.properties, B = b.properties;
+    if (tier(A) !== tier(B)) return tier(A) - tier(B);
+    return (A.FEATURE_AREA_SQM || Infinity) - (B.FEATURE_AREA_SQM || Infinity);
+  })[0];
 }
 
 async function geocode(address) {
@@ -163,12 +245,24 @@ async function geocode(address) {
     lat: coords[1],
     label: String(p.fullAddress || address),
     precision: String(p.matchPrecision || ''),
-    score: Number(p.score ?? 0),
+    locality: p.localityName ? String(p.localityName) : null,
   };
 }
 
-/** Centre of the parcel's bounding box — good enough to place a marker, and
- *  correct for the concave waterfront lots that a naive centroid mishandles. */
+/** Locality for a PID lookup, where no address was supplied to begin with. */
+async function localityAt(lng, lat) {
+  try {
+    const res = await withTimeout(`${REVERSE}?point=${lng},${lat}&outputSRS=4326`, 8000);
+    if (!res.ok) return null;
+    const p = (await res.json())?.properties || {};
+    return p.localityName ? String(p.localityName) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Centre and extent of the parcel's bounding box — correct for the concave
+ *  waterfront lots a naive centroid mishandles. */
 function bounds(geometry) {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   const walk = (node) => {
@@ -185,8 +279,8 @@ function bounds(geometry) {
   return { minX, minY, maxX, maxY, lng: (minX + maxX) / 2, lat: (minY + maxY) / 2 };
 }
 
-async function lookupZoning(municipality, lng, lat) {
-  const layer = ZONING[municipality];
+async function lookupZoning(muni, lng, lat) {
+  const layer = muni && ZONING[muni.id];
   if (!layer) return null;
   const params = new URLSearchParams({
     where: '1=1',
@@ -240,18 +334,24 @@ export default async function handler(req, res) {
     let matched = null;
 
     if (pid) {
-      feature = await wfs(`PID='${pid}'`);
+      feature = (await wfs(`PID='${pid}'`))?.[0] || null;
     } else {
       matched = await geocode(q);
       if (!matched) {
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json({ found: false, reason: 'address-not-found', query: q });
       }
-      // A ~2m box around the point catches the lot under it without needing
-      // exact-boundary intersection maths.
+      // A ~2m box gathers every parcel near the point; pickParcel decides which
+      // one the point is actually on. The count is high because a strata
+      // building can produce well over a hundred candidates and the fee-simple
+      // lot is not reliably among the first few.
       const d = 0.00002;
       const { lng, lat } = matched;
-      feature = await wfs(`BBOX(SHAPE,${lng - d},${lat - d},${lng + d},${lat + d},'EPSG:4326')`);
+      feature = pickParcel(
+        await wfs(`BBOX(SHAPE,${lng - d},${lat - d},${lng + d},${lat + d},'EPSG:4326')`, 200),
+        lng,
+        lat
+      );
     }
 
     if (!feature) {
@@ -267,10 +367,11 @@ export default async function handler(req, res) {
 
     const p = feature.properties || {};
     const box = bounds(feature.geometry);
-    const municipality = String(p.MUNICIPALITY || '').trim();
     const sqm = Number(p.FEATURE_AREA_SQM) || null;
 
-    const zoning = box ? await lookupZoning(municipality, box.lng, box.lat) : null;
+    const locality = matched?.locality || (box ? await localityAt(box.lng, box.lat) : null);
+    const muni = resolveMunicipality(locality, p.MUNICIPALITY);
+    const zoning = box ? await lookupZoning(muni, box.lng, box.lat) : null;
 
     res.setHeader(
       'Cache-Control',
@@ -288,13 +389,13 @@ export default async function handler(req, res) {
         parcelClass: p.PARCEL_CLASS || null,
         status: p.PARCEL_STATUS || null,
         ownerType: p.OWNER_TYPE || null,
-        municipality: municipality || null,
+        municipality: muni?.label || p.MUNICIPALITY || null,
         areaSqm: sqm,
         areaHa: sqm ? Number((sqm / 10000).toFixed(4)) : null,
         areaSqft: sqm ? Math.round(sqm * 10.7639) : null,
       },
       zoning,
-      landev: REGION[municipality] || null,
+      landev: muni ? { region: muni.region, office: muni.office } : null,
       geometry: feature.geometry || null,
       center: box ? { lng: box.lng, lat: box.lat } : null,
       bbox: box ? [box.minX, box.minY, box.maxX, box.maxY] : null,
